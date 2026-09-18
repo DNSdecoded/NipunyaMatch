@@ -1,5 +1,12 @@
 # NipunyaMatch
 
+[![ci](https://github.com/DNSdecoded/NipunyaMatch/actions/workflows/ci.yml/badge.svg)](https://github.com/DNSdecoded/NipunyaMatch/actions/workflows/ci.yml)
+![python](https://img.shields.io/badge/python-3.11%2B-blue)
+![ruff](https://img.shields.io/badge/lint-ruff-261230)
+![mypy](https://img.shields.io/badge/types-mypy%20--strict-2a6db0)
+![coverage](https://img.shields.io/badge/coverage-%E2%89%A570%25%20gate-brightgreen)
+![tags](https://img.shields.io/github/v/tag/DNSdecoded/NipunyaMatch?label=release)
+
 Local, single-user recruitment assistant: upload resume PDFs and one job description, get an
 auditable ranked table, and ask questions in plain English with cited reasoning.
 
@@ -54,7 +61,22 @@ cp .env.example .env            # then set GEMINI_API_KEY (https://aistudio.goog
 uv sync                         # Python 3.11+, installs everything incl. CPU torch for MiniLM
 ```
 
-`OPENROUTER_API_KEY` is optional; without it there is no fallback provider. Scanned resumes need
+`OPENROUTER_API_KEY` is optional; without it there is no fallback provider (an OpenRouter account
+with no credits answers `402`, which the gateway reports as `QUOTA_EXHAUSTED`).
+
+**Free-tier Gemini quotas.** The free tier allows roughly 20 requests/day *per model* and returns
+`503` on overloaded models. Budget: 1 call per JD, 2 per resume (extract + analyse), 2 per chat
+turn. If you hit `429 RESOURCE_EXHAUSTED`, point the affected task at a model with quota left,
+e.g. in `.env`:
+
+```
+GEMINI_MODEL_ANALYZE=gemini-3.5-flash-lite
+GEMINI_MODEL_QUERY=gemini-3.5-flash-lite
+MAX_CONCURRENT_LLM=1
+```
+
+The gateway honours the `retry in Ns` delay Gemini puts in the 429 body; extractions and analyses
+are cached by prompt hash, so re-uploading a batch only re-runs what failed. Scanned resumes need
 the Tesseract binary (`apt install tesseract-ocr`, `brew install tesseract`, or the Windows
 installer); text PDFs work without it. Model IDs live in `.env`, never in code; the defaults are
 the stable IDs pinned in `docs/specs.md` (Gemini 2.0 models are shut down and are not used).
@@ -173,6 +195,41 @@ for the duration of the handler, result sets capped at 50 rows, and the synthesi
 only retrieved rows plus Python-computed facts (score gaps, per-component diffs, skill set
 differences) — numbers in the answer are arithmetic, not model recall. Every answer carries
 candidate IDs as sources.
+
+### API surface
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/jobs` | Create job from pasted text (`text` form field) or PDF (`file`) |
+| `GET` | `/api/jobs` | List jobs (newest first) |
+| `GET` | `/api/jobs/{id}` | Job with parsed required/preferred skills |
+| `DELETE` | `/api/jobs/{id}` | Delete job and its analyses |
+| `POST` | `/api/jobs/{id}/resumes` | Upload 1–50 PDFs → `batch_id` (processing in background) |
+| `GET` | `/api/batches/{id}` | Per-file status, extraction method, error, LLM call count |
+| `GET` | `/api/jobs/{id}/candidates` | Ranked rows; `min_score`, `skill`, `limit` |
+| `GET` | `/api/candidates/{id}` | Full profile, components, evidence-linked skills, questions |
+| `GET` | `/api/candidates` | Every candidate in the DB across jobs |
+| `DELETE` | `/api/candidates/{id}` | Delete one candidate (resume, skills, analyses) |
+| `DELETE` | `/api/candidates` | Clear all candidates |
+| `POST` | `/api/jobs/{id}/query` | NL question → answer, intent, sources, provider |
+| `POST` | `/api/jobs/{id}/rescore` | Re-run deterministic scoring with current weights, no LLM |
+| `GET` | `/api/jobs/{id}/export` | `?format=csv` or `xlsx` |
+| `GET` | `/api/health` | Provider configuration and breaker state |
+
+Errors are always `{code, message, retry_after}`: `INVALID_PDF` 400, `FILE_TOO_LARGE` 413,
+`TOO_MANY_FILES` 400, `NOT_FOUND` 404, `EXTRACTION_FAILED` 422, `QUOTA_EXHAUSTED` 429,
+`NO_PROVIDER` 503. Interactive docs at `http://localhost:8000/docs`.
+
+### UI pages
+
+Sidebar on every page: provider status dot, breaker state, **Active job** picker, candidate count.
+
+1. **Setup** — paste or upload a JD, review parsed skills, drag-and-drop resumes.
+2. **Processing** — live per-file table polling every 2 s; failures stay visible with the reason.
+3. **Candidates** — sortable ranked table, filters, expandable breakdown with evidence quotes,
+   CSV/XLSX export.
+4. **Assistant** — chat with four starter questions; answers carry source chips and the provider.
+5. **Data** — everything in the local DB across jobs; delete a job, a candidate, or clear all.
 
 ## 8. How to run
 

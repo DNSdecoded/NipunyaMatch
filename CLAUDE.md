@@ -27,9 +27,19 @@ uv run python scripts/make_fixtures.py  # regenerate tests/fixtures/resumes + go
 
 No `make` on Windows: run the `uv run ...` lines from the Makefile directly.
 
+## Operational gotchas (learned live)
+
+- Gemini free tier: ~20 requests/day **per model**; `gemini-3.8-flash` often 503s. Retry delay is in the 429 *body* (`retry in Ns`), parsed by `app/llm/gemini.py:_retry_after`. Swap models in `.env`, never in code.
+- `_strip_for_gemini` must not touch keys inside `properties` — a field named `title` was once deleted. Regression test in `tests/llm/test_gemini.py`.
+- OpenRouter `402` (no credits) maps to `QuotaExhausted`, not `NoProvider`.
+- Breaker is in-process: once open it stays open 60 s across batches; restarting the API resets it.
+- `PRAGMA query_only` must be scoped (`app/query/handlers.py:read_only`) — it sticks to the pooled SQLite connection.
+- Streamlit caches imported modules; after editing `app/ui/client.py` or `Home.py` restart `streamlit`, not just reload.
+- Windows dev box has no `make`/`tesseract`; run the `uv run …` lines from the Makefile.
+
 ## Architecture (six layers, typed boundaries)
 
-`Streamlit UI -> FastAPI -> Ingestion (PDF->text) -> Extraction (LLM, JD-independent) -> Scoring (hybrid) -> SQLite (embeddings as float32 BLOB, numpy cosine)`, plus a Query router over SQL + vector retrieval. Layout: `app/{api,llm,parsing,extraction,scoring,query,db,ui}`, `config/scoring.yaml`, `tests/fixtures/`.
+`Streamlit UI -> FastAPI -> Ingestion (PDF->text) -> Extraction (LLM, JD-independent) -> Scoring (hybrid) -> SQLite (embeddings as float32 BLOB, numpy cosine)`, plus a Query router over SQL + vector retrieval. Layout: `app/{api,llm,parsing,extraction,scoring,query,db,ui}` (`api/admin.py` = list/delete candidates and jobs; `ui/pages/5_Data.py` fronts it), `config/scoring.yaml`, `tests/fixtures/`.
 
 Load-bearing rules:
 

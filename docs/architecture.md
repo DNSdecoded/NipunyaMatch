@@ -83,3 +83,12 @@ erDiagram
 Skills are normalised into one `skills` table so "who knows Docker" is a join, not a text scan.
 Lists only ever read whole (`strengths`, `weaknesses`, `interview_questions`) are JSON columns;
 embeddings are float32 BLOBs compared with numpy cosine (sqlite-vec deferred until >1k candidates).
+
+## Request paths (§10)
+
+`app/api/jobs.py` owns job creation, resume batches, ranked listing, query, rescore, export.
+`app/api/candidates.py` serves one candidate's full analysis and batch progress.
+`app/api/admin.py` is the housekeeping surface (list every candidate, delete a candidate or job,
+clear all) that the Streamlit **Data** page uses. Batch processing runs in FastAPI
+`BackgroundTasks` behind an `asyncio.Semaphore(MAX_CONCURRENT_LLM)`; one failed resume is recorded
+on its `FileStatus` and never fails the batch.
