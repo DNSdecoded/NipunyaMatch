@@ -82,6 +82,13 @@ def test_full_flow(client: TestClient) -> None:
     r = client.post(f"/api/jobs/{job_id}/rescore")
     assert r.status_code == 200 and r.json()["rescored"] == 1
 
+    respx.post(f"{GEM}/models/gemini-3.8-flash:generateContent").mock(
+        return_value=gem_ok({**AN_RESP, "llm_fit_score": 40})
+    )
+    r = client.post(f"/api/candidates/{cid}/reanalyze?job_id={job_id}")
+    assert r.status_code == 200 and r.json()["components"]["llm_fit_score"] == 40.0
+    assert client.post(f"/api/candidates/999/reanalyze?job_id={job_id}").status_code == 404
+
     r = client.get(f"/api/jobs/{job_id}/export?format=csv")
     assert r.status_code == 200 and "Alice Smith" in r.text
     assert r.headers["content-type"].startswith("text/csv")

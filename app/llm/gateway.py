@@ -146,12 +146,16 @@ class Gateway:
             resp = await self._openrouter_once(prompt, js, task)
         return resp.text
 
-    async def complete(self, prompt: str, schema: type[T], task: LLMTask) -> T:
+    async def complete(
+        self, prompt: str, schema: type[T], task: LLMTask, fresh: bool = False
+    ) -> T:
+        """`fresh=True` skips the cache read (re-evaluation); the new answer still gets cached."""
         key = cache_key(prompt, self._model_for(task), schema_version(schema))
-        with self._sessions() as s:
-            cached = get_cached(s, key)
-        if cached is not None:
-            return schema.model_validate_json(cached)
+        if not fresh:
+            with self._sessions() as s:
+                cached = get_cached(s, key)
+            if cached is not None:
+                return schema.model_validate_json(cached)
 
         js = inline_refs(schema.model_json_schema())
         text = await self._raw(prompt, js, task)

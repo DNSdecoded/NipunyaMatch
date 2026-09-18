@@ -1,6 +1,6 @@
 import streamlit as st
 
-from app.ui.client import API, get
+from app.ui.client import API, UiError, get, post
 from app.ui.Home import sidebar
 
 sidebar()
@@ -9,6 +9,16 @@ job = st.session_state.get("job")
 if not job:
     st.info("No job yet. Start on the Setup page.")
     st.stop()
+
+t1, t2 = st.columns([1, 4])
+if t1.button("Rescore all (no LLM)", help="Recompute deterministic parts with current weights"):
+    try:
+        r = post(f"/api/jobs/{job['id']}/rescore")
+        st.toast(f"Rescored {r['rescored']} candidates")
+        st.rerun()
+    except UiError as e:
+        st.error(str(e))
+t2.caption("Rescore = weights/aliases only. Re-analyze (per candidate) = fresh LLM judgement.")
 
 c1, c2, c3 = st.columns(3)
 min_score = c1.slider("Min score", 0, 100, 0)
@@ -34,6 +44,15 @@ st.markdown(f"[Export CSV]({API}/api/jobs/{job['id']}/export?format=csv) · "
 for r in rows:
     with st.expander(f"{r['name']} — {r['final_score']} ({r['recommendation']})"):
         d = get(f"/api/candidates/{r['candidate_id']}")
+        if st.button("Re-analyze (fresh LLM call)", key=f"re-{r['candidate_id']}"):
+            try:
+                with st.spinner("Asking the model again…"):
+                    cid = r["candidate_id"]
+                    post(f"/api/candidates/{cid}/reanalyze", params={"job_id": job["id"]})
+                st.toast(f"Re-analyzed {r['name']}")
+                st.rerun()
+            except UiError as e:
+                st.error(str(e))
         st.write(d["summary"])
         st.bar_chart(d["components"])
         a, b = st.columns(2)

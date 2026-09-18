@@ -70,7 +70,8 @@ def _upsert(
 
 
 async def analyze_candidate(
-    gateway: Gateway, session: Session, engine: ScoringEngine, candidate: Candidate, job: Job
+    gateway: Gateway, session: Session, engine: ScoringEngine, candidate: Candidate, job: Job,
+    fresh: bool = False,
 ) -> Analysis:
     reqs = job_requirements(job)
     prompt = render(
@@ -79,7 +80,7 @@ async def analyze_candidate(
         candidate=json.dumps(scoring_view(candidate.extraction_json or {})),
         resume=candidate.raw_text[:12_000],
     )
-    raw = await gateway.complete(prompt, CandidateAnalysis, LLMTask.ANALYZE)
+    raw = await gateway.complete(prompt, CandidateAnalysis, LLMTask.ANALYZE, fresh=fresh)
     llm, hallucinations = validate_analysis(raw, candidate.raw_text)
     if hallucinations:
         log.warning("candidate %s: %d hallucinated evidence strings", candidate.id, hallucinations)

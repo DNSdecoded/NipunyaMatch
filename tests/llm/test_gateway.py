@@ -138,3 +138,13 @@ async def test_no_openrouter_still_works_on_gemini(
     )
     g = Gateway(settings, session_factory, GeminiClient("k", GEM), None)
     assert await g.complete("p", Out, LLMTask.EXTRACT) == Out(x=1)
+
+
+async def test_fresh_bypasses_cache(gw: Gateway) -> None:
+    route = respx.post(f"{GEM}/models/gemini-3.5-flash-lite:generateContent").mock(
+        side_effect=[gem_ok('{"x": 1}'), gem_ok('{"x": 2}')]
+    )
+    assert await gw.complete("p", Out, LLMTask.EXTRACT) == Out(x=1)
+    assert await gw.complete("p", Out, LLMTask.EXTRACT, fresh=True) == Out(x=2)
+    assert await gw.complete("p", Out, LLMTask.EXTRACT) == Out(x=2)  # fresh result re-cached
+    assert route.call_count == 2

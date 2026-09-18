@@ -41,6 +41,7 @@ if job:
             r = post(f"/api/jobs/{job['id']}/resumes",
                      files=[("files", (f.name, f.getvalue(), "application/pdf")) for f in files])
             st.session_state["batch_id"] = r["batch_id"]
+            st.session_state["uploads"] = {f.name: f.getvalue() for f in files}
             st.switch_page("pages/2_Processing.py")
         except UiError as e:
             st.error(str(e))

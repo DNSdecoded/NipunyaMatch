@@ -2,7 +2,7 @@ import time
 
 import streamlit as st
 
-from app.ui.client import get
+from app.ui.client import UiError, get, post
 from app.ui.Home import sidebar
 
 sidebar()
@@ -33,7 +33,19 @@ while True:
                 st.error("Every resume failed. Errors above name the cause (bad PDF, quota, key).")
             else:
                 st.success("Batch complete.")
-            if st.button("View candidates"):
+            uploads = st.session_state.get("uploads", {})
+            retryable = [f["filename"] for f in errors if f["filename"] in uploads]
+            b1, b2 = st.columns(2)
+            if b1.button("View candidates"):
                 st.switch_page("pages/3_Candidates.py")
+            if retryable and b2.button(f"Retry {len(retryable)} failed"):
+                try:
+                    job_id = st.session_state["job"]["id"]
+                    payload = [("files", (n, uploads[n], "application/pdf")) for n in retryable]
+                    r = post(f"/api/jobs/{job_id}/resumes", files=payload)
+                    st.session_state["batch_id"] = r["batch_id"]
+                    st.rerun()
+                except UiError as e:
+                    st.error(str(e))
             break
     time.sleep(2)
