@@ -9,7 +9,7 @@ Intent: {intent}
 Facts (JSON):
 {facts}
 
-Rows (JSON, ranked):
+Rows (JSON, ranked) — these are exactly the candidates that satisfy the question:
 {rows}
 
 Return JSON: {{"answer": "..."}}

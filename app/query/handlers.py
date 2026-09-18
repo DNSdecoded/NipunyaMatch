@@ -125,8 +125,11 @@ def _dispatch(
         cond = {">": col > plan.value, ">=": col >= plan.value, "<": col < plan.value,
                 "<=": col <= plan.value, "=": col == plan.value}[plan.op]
         rows = session.scalars(_ranked(job_id).where(cond).limit(ROW_CAP)).all()
-        return HandlerResult([_row(a) for a in rows],
-                             {"attribute": plan.attribute, "op": plan.op, "value": plan.value})
+        return HandlerResult([_row(a) for a in rows], {
+            "attribute": plan.attribute, "op": plan.op, "value": plan.value,
+            "statement": f"{len(rows)} candidate(s) match {plan.attribute} {plan.op} {plan.value}: "
+            + (", ".join(str(a.candidate.name) for a in rows) or "none"),
+        })
 
     if plan.intent in (Intent.COMPARE, Intent.EXPLAIN_RANKING):
         a = find_candidate(session, job_id, plan.candidate_a or "")
