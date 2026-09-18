@@ -1,3 +1,5 @@
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -13,6 +15,17 @@ from app.scoring.engine import load_config
 ROW_CAP = 50
 _WEIGHTS = load_config(Path("config/scoring.yaml")).weights
 _COMPONENTS = list(_WEIGHTS)
+
+
+@contextmanager
+def read_only(session: Session) -> Iterator[None]:
+    """Query-path guard: no writes on this connection while the handler runs.
+    Reset in finally because the PRAGMA sticks to the pooled connection."""
+    session.execute(text("PRAGMA query_only = ON"))
+    try:
+        yield
+    finally:
+        session.execute(text("PRAGMA query_only = OFF"))
 
 
 @dataclass
@@ -76,7 +89,13 @@ def explain_facts(a: Analysis, b: Analysis) -> dict[str, Any]:
 def run_handler(
     session: Session, job_id: int, plan: QueryPlan, embedder: Embedder
 ) -> HandlerResult:
-    session.execute(text("PRAGMA query_only = ON"))
+    with read_only(session):
+        return _dispatch(session, job_id, plan, embedder)
+
+
+def _dispatch(
+    session: Session, job_id: int, plan: QueryPlan, embedder: Embedder
+) -> HandlerResult:
     n = min(plan.n, ROW_CAP)
 
     if plan.intent in (Intent.TOP_N, Intent.RECOMMEND):

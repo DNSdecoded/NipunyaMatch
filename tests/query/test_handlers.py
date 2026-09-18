@@ -4,7 +4,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.db.models import Analysis, Candidate
-from app.query.handlers import HandlerResult, explain_facts, run_handler
+from app.query.handlers import HandlerResult, explain_facts, read_only, run_handler
 from app.query.schemas import Intent, QueryPlan
 from tests.query.seed import seed
 from tests.scoring.fakes import FakeEmbedder
@@ -85,9 +85,11 @@ def test_semantic_without_question_falls_back_to_rank(db: Session, job_id: int) 
 
 
 def test_read_only_connection(db: Session, job_id: int) -> None:
-    run_handler(db, job_id, QueryPlan(intent=Intent.TOP_N), EMB)
-    with pytest.raises(OperationalError):
-        db.execute(text("DELETE FROM analyses"))
+    with read_only(db):
+        with pytest.raises(OperationalError):
+            db.execute(text("DELETE FROM analyses"))
+        db.rollback()
+    db.execute(text("DELETE FROM llm_calls"))  # writable again once the handler is done
 
 
 def test_explain_facts_ordering() -> None:
