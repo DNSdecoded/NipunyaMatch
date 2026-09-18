@@ -26,10 +26,13 @@ def create_app(
 
 
 def _default_app() -> FastAPI:
+    from app.llm.gateway import build_gateway
+
     settings = get_settings()
     engine = make_engine(settings.database_url)
     init_db(engine)
-    return create_app(settings, make_session_factory(engine))
+    factory = make_session_factory(engine)
+    return create_app(settings, factory, build_gateway(settings, factory))
 
 
 def __getattr__(name: str) -> Any:

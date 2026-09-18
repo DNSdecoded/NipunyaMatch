@@ -36,7 +36,9 @@ class Job(Base):
     education_level: Mapped[str | None] = mapped_column(String(50))
     embedding: Mapped[bytes | None] = mapped_column(LargeBinary)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
-    skills: Mapped[list[JobSkill]] = relationship(back_populates="job", cascade="all, delete-orphan")
+    skills: Mapped[list[JobSkill]] = relationship(
+        back_populates="job", cascade="all, delete-orphan"
+    )
     analyses: Mapped[list[Analysis]] = relationship(back_populates="job")
 
 
