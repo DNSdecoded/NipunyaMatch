@@ -38,3 +38,15 @@ def session_factory(engine: Engine) -> sessionmaker[Session]:
 def db(session_factory: sessionmaker[Session]) -> Iterator[Session]:
     with session_factory() as s:
         yield s
+
+
+from fastapi.testclient import TestClient
+
+from app.main import create_app
+
+
+@pytest.fixture
+def client(settings: Settings, session_factory: sessionmaker[Session]) -> Iterator[TestClient]:
+    app = create_app(settings, session_factory)
+    with TestClient(app) as c:
+        yield c
