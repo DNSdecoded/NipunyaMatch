@@ -80,6 +80,5 @@ async def _process_one(state: Any, batch: BatchStatus, fs: FileStatus, data: byt
 
 async def process_batch(state: Any, batch_id: str, files: list[tuple[str, bytes]]) -> None:
     batch = BATCHES[batch_id]
-    await asyncio.gather(*(
-        _process_one(state, batch, fs, data) for fs, (_, data) in zip(batch.files, files)
-    ))
+    pairs = zip(batch.files, files, strict=True)
+    await asyncio.gather(*(_process_one(state, batch, fs, data) for fs, (_, data) in pairs))
