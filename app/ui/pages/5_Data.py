@@ -6,6 +6,9 @@ from app.ui.Home import sidebar
 sidebar()
 st.header("5 · Data")
 st.caption("Everything in the local SQLite DB, across all jobs. Deletes are immediate.")
+READ_ONLY = bool(st.session_state.get("demo_mode"))
+if READ_ONLY:
+    st.info("Public demo: deletes are disabled. Run the app locally for full control.")
 
 
 def _refresh() -> None:
@@ -20,7 +23,7 @@ if not jobs:
 for j in jobs:
     c1, c2 = st.columns([5, 1])
     c1.markdown(f"**#{j['id']} {j['title']}** — required: {', '.join(j['required_skills']) or '—'}")
-    if c2.button("Delete", key=f"job-{j['id']}"):
+    if not READ_ONLY and c2.button("Delete", key=f"job-{j['id']}"):
         try:
             r = delete(f"/api/jobs/{j['id']}")
             if st.session_state.get("job", {}).get("id") == j["id"]:
@@ -44,7 +47,7 @@ st.dataframe(
 for r in rows:
     c1, c2 = st.columns([5, 1])
     c1.markdown(f"**{r['name'] or '(no name)'}** · {r['email'] or '—'} · id {r['candidate_id']}")
-    if c2.button("Delete", key=f"cand-{r['candidate_id']}"):
+    if not READ_ONLY and c2.button("Delete", key=f"cand-{r['candidate_id']}"):
         try:
             delete(f"/api/candidates/{r['candidate_id']}")
             st.toast(f"Deleted candidate {r['candidate_id']}")
@@ -52,13 +55,15 @@ for r in rows:
         except UiError as e:
             st.error(str(e))
 
-st.divider()
-st.subheader("Danger zone")
-confirm = st.checkbox(f"Yes, delete all {len(rows)} candidates, their resumes and analyses")
-if st.button("Clear all candidates", type="primary", disabled=not confirm):
-    try:
-        r = delete("/api/candidates")
-        st.toast(f"Deleted {r['deleted_candidates']} candidates, {r['deleted_analyses']} analyses")
-        _refresh()
-    except UiError as e:
-        st.error(str(e))
+if not READ_ONLY:
+    st.divider()
+    st.subheader("Danger zone")
+    confirm = st.checkbox(f"Yes, delete all {len(rows)} candidates, their resumes and analyses")
+    if st.button("Clear all candidates", type="primary", disabled=not confirm):
+        try:
+            r = delete("/api/candidates")
+            n, m = r["deleted_candidates"], r["deleted_analyses"]
+            st.toast(f"Deleted {n} candidates, {m} analyses")
+            _refresh()
+        except UiError as e:
+            st.error(str(e))

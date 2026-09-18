@@ -5,6 +5,20 @@ from app.ui.client import get, health
 
 def sidebar() -> None:
     h = health()
+    demo = bool(h.get("demo_mode"))
+    st.session_state["demo_mode"] = demo
+    if demo:
+        st.sidebar.warning(
+            "Public demo — bring your own Gemini key. Data is shared and resets on restart."
+        )
+    if demo or st.session_state.get("api_key"):
+        st.session_state["api_key"] = st.sidebar.text_input(
+            "Your Gemini API key", type="password", key="api_key_input",
+            value=st.session_state.get("api_key", ""),
+            help="Free at https://aistudio.google.com/apikey — kept only in this browser session.",
+        ).strip()
+        if not st.session_state["api_key"]:
+            st.sidebar.caption("Enter a key to parse jobs, upload resumes, or ask questions.")
     dot = "🟢" if h["gemini_configured"] else "🔴"
     extra = " + OpenRouter" if h["openrouter_configured"] else ""
     st.sidebar.markdown(f"{dot} Provider: Gemini{extra}")
