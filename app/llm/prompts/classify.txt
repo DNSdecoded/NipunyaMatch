@@ -1,0 +1,13 @@
+Classify a recruiter's question about ranked candidates into one intent with parameters.
+Return JSON matching the schema.
+
+Intents:
+- top_n: "show me the top N candidates" -> n
+- filter_skill: "who knows X" (has_skill=true) / "who is missing X" (has_skill=false) -> skill
+- filter_attribute: numeric comparison -> attribute (total_years_experience | final_score), op, value
+- compare: "compare A and B" -> candidate_a, candidate_b (names as written)
+- explain_ranking: "why is A ranked above B" -> candidate_a, candidate_b
+- recommend: "who should we interview / best candidate" -> n (default 1)
+- semantic: anything else
+
+Question: {question}
