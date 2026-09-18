@@ -16,10 +16,12 @@ auditable ranked table, and ask questions in plain English with cited reasoning.
 
 ## Demo
 
-[![NipunyaMatch demo video](docs/media/demo-poster.jpg)](https://github.com/DNSdecoded/NipunyaMatch/raw/main/docs/media/demo.mp4)
+<video src="https://github.com/DNSdecoded/NipunyaMatch/releases/download/v0.7/demo.mp4" controls muted playsinline width="100%"></video>
+
+![NipunyaMatch demo](docs/media/demo.gif)
 
 20-second walkthrough: ranked candidates → score breakdown → evidence check → grounded Q&A.
-[Download / open the MP4](docs/media/demo.mp4).
+[MP4 (release asset)](https://github.com/DNSdecoded/NipunyaMatch/releases/download/v0.7/demo.mp4) · [MP4 (repo)](docs/media/demo.mp4)
 
 ## 1. Project description and objectives
 
