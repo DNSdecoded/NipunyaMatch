@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
-Greenfield, no code yet. Three documents:
+Implemented through Phase 7 (tags v0.0–v0.7). Three documents:
 
 - `docs/specs.md` — engineering contracts (schemas, API, DB, scoring, gateway rules). Source of truth for *what* to build.
 - `implementation_plan.md` — 33 TDD tasks across 8 phases with test + implementation code per task. Source of truth for *how* and *in what order*. Execute with `superpowers:subagent-driven-development` or `superpowers:executing-plans`.
@@ -12,23 +12,24 @@ Greenfield, no code yet. Three documents:
 
 This file summarises the decisions that are easy to violate by accident. Deliberate deviations from the original spec (marked `ponytail:` in the plan): embeddings as float32 BLOB + numpy cosine instead of `sqlite-vec`; `create_all` instead of Alembic; in-process batch dict; worked-example required coverage is `76` (0.8 embedding credit), final still `72`.
 
-## Planned commands (from spec — verify once scaffolded)
+## Commands
 
 ```
-uv sync                              # install deps
-uv run uvicorn app.main:app          # run API locally
-docker compose up                    # documented run path
-make seed                            # load sample JD + 12 fixture resumes
-pytest                               # all tests; no network, no API key needed
-pytest tests/test_scoring.py -k worked_example   # single test
-ruff check .                         # lint
-mypy --strict app/llm app/scoring    # strict typing only on these two packages
-pytest --cov                         # 70% floor on business logic
+make dev / make ui                      # API :8000, Streamlit :8501
+docker compose up                       # same, containerised
+GEMINI_API_KEY=dummy make seed          # golden fixtures -> ranked table, no LLM call
+make test                               # pytest --cov, 70% floor; no network
+uv run pytest tests/scoring/test_engine.py::test_worked_example_reproduces
+make lint                               # ruff + mypy --strict on app/llm app/scoring
+uv run python scripts/evaluate.py       # golden-set metrics (needs a real GEMINI_API_KEY)
+uv run python scripts/make_fixtures.py  # regenerate tests/fixtures/resumes + golden labels
 ```
+
+No `make` on Windows: run the `uv run ...` lines from the Makefile directly.
 
 ## Architecture (six layers, typed boundaries)
 
-`Streamlit UI -> FastAPI -> Ingestion (PDF->text) -> Extraction (LLM, JD-independent) -> Scoring (hybrid) -> SQLite + sqlite-vec`, plus a Query router over SQL + vector retrieval. Layout: `app/{api,llm,parsing,extraction,scoring,query,db,ui}`, `config/scoring.yaml`, `tests/fixtures/`.
+`Streamlit UI -> FastAPI -> Ingestion (PDF->text) -> Extraction (LLM, JD-independent) -> Scoring (hybrid) -> SQLite (embeddings as float32 BLOB, numpy cosine)`, plus a Query router over SQL + vector retrieval. Layout: `app/{api,llm,parsing,extraction,scoring,query,db,ui}`, `config/scoring.yaml`, `tests/fixtures/`.
 
 Load-bearing rules:
 
