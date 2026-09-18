@@ -120,6 +120,8 @@ def test_query_quota_exhausted_maps_429(client: TestClient) -> None:
     job_id = client.post("/api/jobs", data={"text": "jd"}).json()["id"]
     respx.post(f"{GEM}/models/gemini-3.5-flash:generateContent").mock(
         return_value=httpx.Response(429))
+    respx.post(f"{GEM}/models/gemini-3.5-flash-lite:generateContent").mock(
+        return_value=httpx.Response(429))  # fallback model exhausted too
     respx.post("https://openrouter.ai/api/v1/chat/completions").mock(
         return_value=httpx.Response(429, headers={"retry-after": "30"}))
     r = client.post(f"/api/jobs/{job_id}/query", json={"question": "top 5"})
