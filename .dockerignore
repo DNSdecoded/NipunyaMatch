@@ -1,0 +1,11 @@
+.venv
+.git
+data
+brag-output-*
+docs/media
+.pytest_cache
+.mypy_cache
+.ruff_cache
+htmlcov
+.env
+hf_secret.txt
