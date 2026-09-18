@@ -36,6 +36,7 @@ def create_app(
     app.state.settings = settings
     app.state.session_factory = session_factory
     app.state.gateway = gateway
+    app.state.gateways = {}  # visitor key digest -> Gateway (see api/deps.get_gateway)
     if engine is None:
         from app.scoring.embeddings import LocalEmbedder
         from app.scoring.engine import build_engine

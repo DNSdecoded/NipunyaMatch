@@ -45,3 +45,46 @@ def demo_client(
 def test_health_reports_demo_mode(client: TestClient, demo_client: TestClient) -> None:
     assert client.get("/api/health").json()["demo_mode"] is False
     assert demo_client.get("/api/health").json()["demo_mode"] is True
+
+
+@respx.mock
+def test_header_key_builds_per_visitor_gateway(client: TestClient) -> None:
+    route = respx.post(f"{GEM}/models/gemini-3.8-flash:generateContent").mock(
+        return_value=gem_ok(JD_RESP)
+    )
+    for _ in range(2):
+        r = client.post("/api/jobs", data={"text": "jd A"}, headers={"X-Gemini-Key": "visitor-a"})
+        assert r.status_code == 201, r.text
+    client.post("/api/jobs", data={"text": "jd B"}, headers={"X-Gemini-Key": "visitor-b"})
+    sent = [c.request.headers["x-goog-api-key"] for c in route.calls]
+    assert sent == ["visitor-a", "visitor-b"]  # second A call was a cache hit
+    assert len(client.app.state.gateways) == 2
+
+
+@respx.mock
+def test_no_header_uses_server_gateway_outside_demo(client: TestClient) -> None:
+    route = respx.post(f"{GEM}/models/gemini-3.8-flash:generateContent").mock(
+        return_value=gem_ok(JD_RESP)
+    )
+    assert client.post("/api/jobs", data={"text": "jd"}).status_code == 201
+    assert route.calls[0].request.headers["x-goog-api-key"] == "k"  # conftest gateway key
+
+
+def test_demo_without_key_is_401(demo_client: TestClient) -> None:
+    r = demo_client.post("/api/jobs", data={"text": "jd"})
+    assert r.status_code == 401 and r.json()["code"] == "NO_API_KEY"
+    assert "aistudio.google.com" in r.json()["message"]
+    r = demo_client.post("/api/jobs/1/query", json={"question": "top 5"})
+    assert r.status_code == 401
+
+
+def test_gateway_pool_is_bounded(client: TestClient) -> None:
+    from app.api.deps import MAX_VISITOR_GATEWAYS
+
+    with respx.mock:
+        respx.post(f"{GEM}/models/gemini-3.8-flash:generateContent").mock(
+            return_value=gem_ok(JD_RESP)
+        )
+        for i in range(MAX_VISITOR_GATEWAYS + 5):
+            client.post("/api/jobs", data={"text": f"jd {i}"}, headers={"X-Gemini-Key": f"k{i}"})
+    assert len(client.app.state.gateways) == MAX_VISITOR_GATEWAYS
