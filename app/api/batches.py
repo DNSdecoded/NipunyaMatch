@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from app.db.models import Job
 from app.extraction.extractor import extract_candidate
 from app.extraction.persist import persist_candidate, resume_hash
+from app.llm.gateway import Gateway
 from app.llm.types import ExtractionFailed, NoProvider, QuotaExhausted
 from app.parsing.pipeline import parse_pdf
 from app.parsing.validate import InvalidPDF
@@ -53,19 +54,21 @@ def _friendly(e: Exception) -> str:
     return "Unexpected error while processing this resume."
 
 
-async def _process_one(state: Any, batch: BatchStatus, fs: FileStatus, data: bytes) -> None:
+async def _process_one(
+    state: Any, gateway: Gateway, batch: BatchStatus, fs: FileStatus, data: bytes
+) -> None:
     fs.status = "processing"
     try:
         parsed = await asyncio.to_thread(parse_pdf, data)
         fs.extraction_method = parsed.extraction_method
         async with state.llm_semaphore:
-            ext, flags = await extract_candidate(state.gateway, parsed.text)
+            ext, flags = await extract_candidate(gateway, parsed.text)
         with state.session_factory() as s:
             cand = persist_candidate(s, parsed, ext, flags, resume_hash(data))
             job = s.get(Job, batch.job_id)
             assert job is not None
             async with state.llm_semaphore:
-                await analyze_candidate(state.gateway, s, state.engine, cand, job)
+                await analyze_candidate(gateway, s, state.engine, cand, job)
             fs.candidate_id = cand.id
         fs.status = "done"
     except InvalidPDF as e:
@@ -75,10 +78,14 @@ async def _process_one(state: Any, batch: BatchStatus, fs: FileStatus, data: byt
         fs.status, fs.error = "error", _friendly(e)
     finally:
         batch.done += 1
-        batch.llm_calls = state.gateway.call_count
+        batch.llm_calls = gateway.call_count
 
 
-async def process_batch(state: Any, batch_id: str, files: list[tuple[str, bytes]]) -> None:
+async def process_batch(
+    state: Any, gateway: Gateway, batch_id: str, files: list[tuple[str, bytes]]
+) -> None:
     batch = BATCHES[batch_id]
     pairs = zip(batch.files, files, strict=True)
-    await asyncio.gather(*(_process_one(state, batch, fs, data) for fs, (_, data) in pairs))
+    await asyncio.gather(
+        *(_process_one(state, gateway, batch, fs, data) for fs, (_, data) in pairs)
+    )

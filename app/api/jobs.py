@@ -8,10 +8,11 @@ from sqlalchemy import Select, select
 from sqlalchemy.orm import Session
 
 from app.api.batches import new_batch, process_batch
-from app.api.deps import get_db
+from app.api.deps import forbid_in_demo, get_db, get_gateway
 from app.api.errors import ApiError
 from app.api.schemas import CandidateRow, JobOut, QueryIn, row_from
 from app.db.models import Analysis, Candidate, CandidateSkill, ChatTurn, Job, Skill
+from app.llm.gateway import Gateway
 from app.parsing.pipeline import parse_pdf, parse_text
 from app.parsing.validate import InvalidPDF
 from app.query.schemas import QueryResponse
@@ -21,6 +22,8 @@ from app.scoring.jd import create_job, job_requirements, parse_jd
 
 router = APIRouter(prefix="/api/jobs")
 MAX_FILES = 50
+DEMO_MAX_FILES = 10
+DEMO_MAX_BYTES = 5 * 1024 * 1024
 
 
 def _job_or_404(db: Session, job_id: int) -> Job:
@@ -44,7 +47,7 @@ def _ranked(job_id: int) -> Select[tuple[Analysis]]:
 
 @router.post("", status_code=201)
 async def create(
-    request: Request, db: Session = Depends(get_db),
+    db: Session = Depends(get_db), gateway: Gateway = Depends(get_gateway),
     text: str | None = Form(None), file: UploadFile | None = File(None),
 ) -> JobOut:
     if file is not None:
@@ -56,7 +59,7 @@ async def create(
         parsed = parse_text(text)
     else:
         raise ApiError(400, "MISSING_JD", "Provide a job description as text or a PDF file.")
-    reqs = await parse_jd(request.app.state.gateway, parsed.text)
+    reqs = await parse_jd(gateway, parsed.text)
     return _job_out(create_job(db, reqs, parsed.text))
 
 
@@ -74,13 +77,18 @@ async def get_job(job_id: int, db: Session = Depends(get_db)) -> JobOut:
 async def upload_resumes(
     job_id: int, request: Request, background: BackgroundTasks,
     files: list[UploadFile] = File(...), db: Session = Depends(get_db),
+    gateway: Gateway = Depends(get_gateway),
 ) -> dict[str, str]:
-    if len(files) > MAX_FILES:
-        raise ApiError(400, "TOO_MANY_FILES", f"Upload at most {MAX_FILES} resumes per batch.")
+    demo = request.app.state.settings.demo_mode
+    max_files = DEMO_MAX_FILES if demo else MAX_FILES
+    if len(files) > max_files:
+        raise ApiError(400, "TOO_MANY_FILES", f"Upload at most {max_files} resumes per batch.")
     _job_or_404(db, job_id)
     payload = [(f.filename or "resume.pdf", await f.read()) for f in files]
+    if demo and any(len(data) >= DEMO_MAX_BYTES for _, data in payload):
+        raise ApiError(413, "FILE_TOO_LARGE", "Demo limit is 5 MB per resume.")
     batch = new_batch(job_id, [n for n, _ in payload])
-    background.add_task(process_batch, request.app.state, batch.id, payload)
+    background.add_task(process_batch, request.app.state, gateway, batch.id, payload)
     return {"batch_id": batch.id}
 
 
@@ -100,11 +108,12 @@ async def list_candidates(
 
 @router.post("/{job_id}/query")
 async def query(
-    job_id: int, body: QueryIn, request: Request, db: Session = Depends(get_db)
+    job_id: int, body: QueryIn, request: Request, db: Session = Depends(get_db),
+    gateway: Gateway = Depends(get_gateway),
 ) -> QueryResponse:
     _job_or_404(db, job_id)
     state = request.app.state
-    r = await answer_question(state.gateway, db, job_id, body.question, state.embedder)
+    r = await answer_question(gateway, db, job_id, body.question, state.embedder)
     db.add(ChatTurn(job_id=job_id, question=body.question, answer=r.answer, intent=r.intent.value,
                     provider=r.provider_used, sources=[s.model_dump() for s in r.sources]))
     db.commit()
@@ -121,7 +130,7 @@ async def chat_history(job_id: int, db: Session = Depends(get_db)) -> list[dict[
              "sources": t.sources, "at": t.created_at.isoformat()} for t in turns]
 
 
-@router.post("/{job_id}/rescore")
+@router.post("/{job_id}/rescore", dependencies=[Depends(forbid_in_demo)])
 async def rescore(job_id: int, request: Request, db: Session = Depends(get_db)) -> dict[str, int]:
     job = _job_or_404(db, job_id)
     engine = request.app.state.engine

@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db
+from app.api.deps import forbid_in_demo, get_db
 from app.api.errors import ApiError
 from app.db.models import Analysis, Candidate, ChatTurn, Job, SkillMatchRow
 
@@ -44,7 +44,7 @@ async def list_all_candidates(db: Session = Depends(get_db)) -> list[CandidateSu
     ]
 
 
-@router.delete("/candidates/{candidate_id}")
+@router.delete("/candidates/{candidate_id}", dependencies=[Depends(forbid_in_demo)])
 async def delete_candidate(candidate_id: int, db: Session = Depends(get_db)) -> dict[str, int]:
     cand = db.get(Candidate, candidate_id)
     if cand is None:
@@ -55,7 +55,7 @@ async def delete_candidate(candidate_id: int, db: Session = Depends(get_db)) -> 
     return {"deleted_candidates": 1, "deleted_analyses": n}
 
 
-@router.delete("/candidates")
+@router.delete("/candidates", dependencies=[Depends(forbid_in_demo)])
 async def clear_candidates(db: Session = Depends(get_db)) -> dict[str, int]:
     n = _delete_analyses(db, Analysis.id.is_not(None))
     cands = db.scalars(select(Candidate)).all()
@@ -65,7 +65,7 @@ async def clear_candidates(db: Session = Depends(get_db)) -> dict[str, int]:
     return {"deleted_candidates": len(cands), "deleted_analyses": n}
 
 
-@router.delete("/jobs/{job_id}")
+@router.delete("/jobs/{job_id}", dependencies=[Depends(forbid_in_demo)])
 async def delete_job(job_id: int, db: Session = Depends(get_db)) -> dict[str, int]:
     job = db.get(Job, job_id)
     if job is None:

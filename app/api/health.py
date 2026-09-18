@@ -13,6 +13,7 @@ async def health(request: Request) -> dict[str, object]:
         "gemini_configured": bool(settings.gemini_api_key),
         "openrouter_configured": bool(settings.openrouter_api_key),
         "breaker_state": gateway.breaker.state if gateway else "closed",
+        "demo_mode": settings.demo_mode,
     }
 
 

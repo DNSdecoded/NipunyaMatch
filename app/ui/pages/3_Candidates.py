@@ -11,7 +11,9 @@ if not job:
     st.stop()
 
 t1, t2 = st.columns([1, 4])
-if t1.button("Rescore all (no LLM)", help="Recompute deterministic parts with current weights"):
+if not st.session_state.get("demo_mode") and t1.button(
+    "Rescore all (no LLM)", help="Recompute deterministic parts with current weights"
+):
     try:
         r = post(f"/api/jobs/{job['id']}/rescore")
         st.toast(f"Rescored {r['rescored']} candidates")

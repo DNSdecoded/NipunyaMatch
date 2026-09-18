@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     embedding_backend: Literal["local", "gemini"] = "local"
     max_concurrent_llm: int = 4
     log_level: str = "INFO"
+    demo_mode: bool = False  # public demo: BYO key, no deletes, small upload caps
     gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
 

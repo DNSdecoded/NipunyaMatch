@@ -263,9 +263,16 @@ GEMINI_API_KEY=dummy make seed         # populated demo from 12 golden fixtures,
 make test                              # pytest --cov, 70% floor, no network
 make lint                              # ruff + mypy --strict on app/llm and app/scoring
 uv run python scripts/evaluate.py      # golden-set numbers; needs a real GEMINI_API_KEY
+sh scripts/deploy.sh                   # (re)deploy the public demo to Cloud Run (see docs/superpowers/specs)
 ```
 
 No `make` on Windows? Run the `uv run ...` commands from the Makefile directly.
+
+**Public demo mode.** `DEMO_MODE=true` makes the API require an `X-Gemini-Key` header on every
+LLM-backed call (the Streamlit sidebar collects it and keeps it in the browser session only),
+disables deletes and rescoring, and caps uploads at 10 files / 5 MB each. That is how the hosted
+demo runs without spending the maintainer's quota. Single-container layout for Cloud Run:
+`docker build -t nipunyamatch . && docker run -p 8080:8080 -e GEMINI_API_KEY=x -e DEMO_MODE=true nipunyamatch`.
 
 **Seeded demo.** `make seed` parses the 12 fixture PDFs, builds extractions from the golden labels,
 and scores them with the deterministic engine plus the labelled LLM fit — so the four starter
