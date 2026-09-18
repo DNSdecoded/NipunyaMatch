@@ -72,7 +72,12 @@ which provider answered and how many retries it took.
 ```bash
 cp .env.example .env            # then set GEMINI_API_KEY (https://aistudio.google.com/apikey)
 uv sync                         # Python 3.11+, installs everything incl. CPU torch for MiniLM
+# without uv:
+python -m venv .venv && . .venv/bin/activate && pip install -r requirements.txt
 ```
+
+`requirements.txt` is exported from `uv.lock` (`uv export --no-dev --no-emit-project`) and is the
+pip-compatible mirror of the same pins.
 
 `OPENROUTER_API_KEY` is optional; without it there is no fallback provider (an OpenRouter account
 with no credits answers `402`, which the gateway reports as `QUOTA_EXHAUSTED`).
@@ -177,7 +182,8 @@ erDiagram
 Tables: `jobs`, `candidates` (unique `resume_hash`; re-upload updates in place), `skills` (global
 deduped vocabulary), `candidate_skills`, `job_skills`, `experiences`, `analyses` (unique
 `(candidate_id, job_id)`; one row per candidate per JD with all five components), `skill_matches`,
-`llm_calls` (audit), `llm_cache` (sha256 of prompt+model+schema version → response).
+`llm_calls` (audit), `llm_cache` (sha256 of prompt+model+schema version → response),
+`chat_turns` (persisted assistant conversation per job: question, answer, intent, provider, sources).
 
 Indexes: `idx_cand_hash`, `idx_analysis_pair`, `idx_analysis_score (job_id, final_score)`,
 `idx_cs_skill`, `idx_cs_candidate`, `idx_exp_candidate`.
@@ -196,7 +202,7 @@ parameterised SQL. **Not text-to-SQL**: the model never writes SQL, so it cannot
 | Intent | Example | Handler |
 | --- | --- | --- |
 | `top_n` | Show me the top 5 candidates | `ORDER BY final_score DESC LIMIT n` |
-| `filter_skill` | Who knows Python / is missing Docker | Join `candidate_skills` with has/missing |
+| `filter_skill` | Who knows Python / has ML experience / is missing Docker | Join `candidate_skills`; skill name resolved through the alias table (`ML` = `Machine Learning`) |
 | `filter_attribute` | More than 2 years experience | Comparison on a whitelisted column |
 | `compare` | Compare A and B | Fetch both analyses, diff components |
 | `explain_ranking` | Why is X above Y | Diff components, narrate largest weighted gaps |
@@ -224,7 +230,8 @@ candidate IDs as sources.
 | `GET` | `/api/candidates` | Every candidate in the DB across jobs |
 | `DELETE` | `/api/candidates/{id}` | Delete one candidate (resume, skills, analyses) |
 | `DELETE` | `/api/candidates` | Clear all candidates |
-| `POST` | `/api/jobs/{id}/query` | NL question → answer, intent, sources, provider |
+| `POST` | `/api/jobs/{id}/query` | NL question → answer, intent, sources, provider; turn saved to `chat_turns` |
+| `GET` | `/api/jobs/{id}/chat` | Conversation history for the job, oldest first |
 | `POST` | `/api/jobs/{id}/rescore` | Re-run deterministic scoring with current weights, no LLM |
 | `GET` | `/api/jobs/{id}/export` | `?format=csv` or `xlsx` |
 | `GET` | `/api/health` | Provider configuration and breaker state |
@@ -242,6 +249,7 @@ Sidebar on every page: provider status dot, breaker state, **Active job** picker
 3. **Candidates** — sortable ranked table, filters, expandable breakdown with evidence quotes,
    CSV/XLSX export.
 4. **Assistant** — chat with four starter questions; answers carry source chips and the provider.
+   History is stored per job and survives page refresh and restarts.
 5. **Data** — everything in the local DB across jobs; delete a job, a candidate, or clear all.
 
 ## 8. How to run

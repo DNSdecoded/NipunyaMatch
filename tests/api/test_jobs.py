@@ -78,6 +78,9 @@ def test_full_flow(client: TestClient) -> None:
     q = client.post(f"/api/jobs/{job_id}/query", json={"question": "Top candidates?"}).json()
     assert q["answer"] == "Alice leads." and q["intent"] == "top_n"
     assert q["sources"][0]["candidate_id"] == cid and q["provider_used"] == "gemini"
+    hist = client.get(f"/api/jobs/{job_id}/chat").json()
+    assert len(hist) == 1 and hist[0]["q"] == "Top candidates?" and hist[0]["a"] == "Alice leads."
+    assert hist[0]["sources"][0]["candidate_id"] == cid
 
     r = client.post(f"/api/jobs/{job_id}/rescore")
     assert r.status_code == 200 and r.json()["rescored"] == 1

@@ -11,10 +11,12 @@ from app.db.models import Analysis, Candidate, CandidateSkill, Skill
 from app.query.schemas import Intent, QueryPlan
 from app.scoring.embeddings import Embedder, cosine
 from app.scoring.engine import load_config
+from app.scoring.skills import canon, load_aliases
 
 ROW_CAP = 50
 _WEIGHTS = load_config(Path("config/scoring.yaml")).weights
 _COMPONENTS = list(_WEIGHTS)
+_ALIASES = load_aliases(Path("config/skill_aliases.yaml"))
 
 
 @contextmanager
@@ -103,9 +105,12 @@ def _dispatch(
         return HandlerResult([_row(a) for a in rows])
 
     if plan.intent == Intent.FILTER_SKILL and plan.skill:
-        skill_ids = select(Skill.id).where(
-            func.lower(Skill.canonical_name) == plan.skill.strip().lower()
-        )
+        # alias-aware: "ML" / "Machine Learning" / "machine learning" all resolve to one canon
+        target = canon(plan.skill, _ALIASES).lower()
+        skill_ids = [
+            sid for sid, name in session.execute(select(Skill.id, Skill.canonical_name)).all()
+            if canon(name, _ALIASES).lower() == target
+        ]
         has = select(CandidateSkill.candidate_id).where(CandidateSkill.skill_id.in_(skill_ids))
         cond = Candidate.id.in_(has) if plan.has_skill else Candidate.id.not_in(has)
         rows = session.scalars(_ranked(job_id).where(cond).limit(ROW_CAP)).all()

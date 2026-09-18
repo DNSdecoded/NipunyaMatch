@@ -11,7 +11,7 @@ from app.api.batches import new_batch, process_batch
 from app.api.deps import get_db
 from app.api.errors import ApiError
 from app.api.schemas import CandidateRow, JobOut, QueryIn, row_from
-from app.db.models import Analysis, Candidate, CandidateSkill, Job, Skill
+from app.db.models import Analysis, Candidate, CandidateSkill, ChatTurn, Job, Skill
 from app.parsing.pipeline import parse_pdf, parse_text
 from app.parsing.validate import InvalidPDF
 from app.query.schemas import QueryResponse
@@ -104,7 +104,21 @@ async def query(
 ) -> QueryResponse:
     _job_or_404(db, job_id)
     state = request.app.state
-    return await answer_question(state.gateway, db, job_id, body.question, state.embedder)
+    r = await answer_question(state.gateway, db, job_id, body.question, state.embedder)
+    db.add(ChatTurn(job_id=job_id, question=body.question, answer=r.answer, intent=r.intent.value,
+                    provider=r.provider_used, sources=[s.model_dump() for s in r.sources]))
+    db.commit()
+    return r
+
+
+@router.get("/{job_id}/chat")
+async def chat_history(job_id: int, db: Session = Depends(get_db)) -> list[dict[str, object]]:
+    """Persisted conversation for this job, oldest first."""
+    _job_or_404(db, job_id)
+    q = select(ChatTurn).where(ChatTurn.job_id == job_id).order_by(ChatTurn.id)
+    turns = db.scalars(q).all()
+    return [{"q": t.question, "a": t.answer, "intent": t.intent, "provider": t.provider,
+             "sources": t.sources, "at": t.created_at.isoformat()} for t in turns]
 
 
 @router.post("/{job_id}/rescore")

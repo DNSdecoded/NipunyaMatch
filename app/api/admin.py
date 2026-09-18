@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.api.errors import ApiError
-from app.db.models import Analysis, Candidate, Job, SkillMatchRow
+from app.db.models import Analysis, Candidate, ChatTurn, Job, SkillMatchRow
 
 router = APIRouter(prefix="/api")
 
@@ -71,6 +71,7 @@ async def delete_job(job_id: int, db: Session = Depends(get_db)) -> dict[str, in
     if job is None:
         raise ApiError(404, "NOT_FOUND", f"Job {job_id} not found")
     n = _delete_analyses(db, Analysis.job_id == job_id)
+    db.execute(delete(ChatTurn).where(ChatTurn.job_id == job_id))
     db.delete(job)  # job_skills cascade
     db.commit()
     return {"deleted_jobs": 1, "deleted_analyses": n}

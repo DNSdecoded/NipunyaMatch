@@ -1,6 +1,6 @@
 import streamlit as st
 
-from app.ui.client import UiError, post
+from app.ui.client import UiError, get, post
 from app.ui.Home import sidebar
 
 sidebar()
@@ -12,7 +12,9 @@ if not job:
 
 STARTERS = ["Show me the top 5 candidates", "Which candidates know Python?",
             "Which candidates are missing Docker?", "Recommend the best candidate for interview"]
-chat = st.session_state.setdefault("chat", [])
+if "chat" not in st.session_state:  # history survives refresh: it lives in the DB
+    st.session_state["chat"] = get(f"/api/jobs/{job['id']}/chat")
+chat = st.session_state["chat"]
 
 
 def ask(q: str) -> None:

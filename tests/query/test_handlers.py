@@ -1,5 +1,5 @@
 import pytest
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
@@ -34,6 +34,18 @@ def test_top_n(db: Session, job_id: int) -> None:
 def test_filter_skill_has(db: Session, job_id: int) -> None:
     r = run_handler(db, job_id, QueryPlan(intent=Intent.FILTER_SKILL, skill="python"), EMB)
     assert names(r) == ["Alice Smith", "Bob Jones"]
+
+
+def test_filter_skill_resolves_aliases(db: Session, job_id: int) -> None:
+    from app.db.models import CandidateSkill
+    from app.extraction.persist import get_or_create_skill
+
+    alice = db.scalar(select(Candidate).where(Candidate.name == "Alice Smith"))
+    assert alice is not None
+    alice.skills.append(CandidateSkill(skill=get_or_create_skill(db, "ML"), raw_mention="ML"))
+    db.commit()
+    plan = QueryPlan(intent=Intent.FILTER_SKILL, skill="machine learning")
+    assert names(run_handler(db, job_id, plan, EMB)) == ["Alice Smith"]
 
 
 def test_filter_skill_missing(db: Session, job_id: int) -> None:
