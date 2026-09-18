@@ -88,3 +88,23 @@ def test_gateway_pool_is_bounded(client: TestClient) -> None:
         for i in range(MAX_VISITOR_GATEWAYS + 5):
             client.post("/api/jobs", data={"text": f"jd {i}"}, headers={"X-Gemini-Key": f"k{i}"})
     assert len(client.app.state.gateways) == MAX_VISITOR_GATEWAYS
+
+
+def test_demo_forbids_deletes_and_rescore(demo_client: TestClient) -> None:
+    for method, path in [("DELETE", "/api/jobs/1"), ("DELETE", "/api/candidates"),
+                         ("DELETE", "/api/candidates/1"), ("POST", "/api/jobs/1/rescore")]:
+        r = demo_client.request(method, path)
+        assert r.status_code == 403 and r.json()["code"] == "DEMO_READ_ONLY", path
+
+
+@respx.mock
+def test_demo_upload_caps(demo_client: TestClient) -> None:
+    respx.post(f"{GEM}/models/gemini-3.8-flash:generateContent").mock(return_value=gem_ok(JD_RESP))
+    h = {"X-Gemini-Key": "visitor"}
+    job_id = demo_client.post("/api/jobs", data={"text": "jd"}, headers=h).json()["id"]
+    many = [("files", (f"{i}.pdf", b"%PDF", "application/pdf")) for i in range(11)]
+    r = demo_client.post(f"/api/jobs/{job_id}/resumes", files=many, headers=h)
+    assert r.status_code == 400 and r.json()["code"] == "TOO_MANY_FILES"
+    big = [("files", ("big.pdf", b"%PDF" + b"0" * (5 * 1024 * 1024), "application/pdf"))]
+    r = demo_client.post(f"/api/jobs/{job_id}/resumes", files=big, headers=h)
+    assert r.status_code == 413 and r.json()["code"] == "FILE_TOO_LARGE"

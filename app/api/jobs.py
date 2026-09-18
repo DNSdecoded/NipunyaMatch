@@ -8,7 +8,7 @@ from sqlalchemy import Select, select
 from sqlalchemy.orm import Session
 
 from app.api.batches import new_batch, process_batch
-from app.api.deps import get_db, get_gateway
+from app.api.deps import forbid_in_demo, get_db, get_gateway
 from app.api.errors import ApiError
 from app.api.schemas import CandidateRow, JobOut, QueryIn, row_from
 from app.db.models import Analysis, Candidate, CandidateSkill, ChatTurn, Job, Skill
@@ -22,6 +22,8 @@ from app.scoring.jd import create_job, job_requirements, parse_jd
 
 router = APIRouter(prefix="/api/jobs")
 MAX_FILES = 50
+DEMO_MAX_FILES = 10
+DEMO_MAX_BYTES = 5 * 1024 * 1024
 
 
 def _job_or_404(db: Session, job_id: int) -> Job:
@@ -77,10 +79,14 @@ async def upload_resumes(
     files: list[UploadFile] = File(...), db: Session = Depends(get_db),
     gateway: Gateway = Depends(get_gateway),
 ) -> dict[str, str]:
-    if len(files) > MAX_FILES:
-        raise ApiError(400, "TOO_MANY_FILES", f"Upload at most {MAX_FILES} resumes per batch.")
+    demo = request.app.state.settings.demo_mode
+    max_files = DEMO_MAX_FILES if demo else MAX_FILES
+    if len(files) > max_files:
+        raise ApiError(400, "TOO_MANY_FILES", f"Upload at most {max_files} resumes per batch.")
     _job_or_404(db, job_id)
     payload = [(f.filename or "resume.pdf", await f.read()) for f in files]
+    if demo and any(len(data) >= DEMO_MAX_BYTES for _, data in payload):
+        raise ApiError(413, "FILE_TOO_LARGE", "Demo limit is 5 MB per resume.")
     batch = new_batch(job_id, [n for n, _ in payload])
     background.add_task(process_batch, request.app.state, gateway, batch.id, payload)
     return {"batch_id": batch.id}
@@ -124,7 +130,7 @@ async def chat_history(job_id: int, db: Session = Depends(get_db)) -> list[dict[
              "sources": t.sources, "at": t.created_at.isoformat()} for t in turns]
 
 
-@router.post("/{job_id}/rescore")
+@router.post("/{job_id}/rescore", dependencies=[Depends(forbid_in_demo)])
 async def rescore(job_id: int, request: Request, db: Session = Depends(get_db)) -> dict[str, int]:
     job = _job_or_404(db, job_id)
     engine = request.app.state.engine
