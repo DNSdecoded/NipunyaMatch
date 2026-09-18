@@ -5,15 +5,18 @@ import httpx
 from app.llm.types import LLMResponse, ProviderError
 
 
-def _strip_for_gemini(schema: dict[str, Any]) -> dict[str, Any]:
-    """Gemini's responseSchema rejects a few JSON-Schema keywords Pydantic emits."""
+def _strip_for_gemini(schema: dict[str, Any], is_properties: bool = False) -> dict[str, Any]:
+    """Gemini's responseSchema rejects a few JSON-Schema keywords Pydantic emits.
+
+    Keys of a `properties` map are field names, not keywords (a field called `title` must
+    survive), so they are never dropped."""
     drop = {"title", "default", "additionalProperties"}
     out: dict[str, Any] = {}
     for k, v in schema.items():
-        if k in drop:
+        if not is_properties and k in drop:
             continue
         if isinstance(v, dict):
-            out[k] = _strip_for_gemini(v)
+            out[k] = _strip_for_gemini(v, is_properties=(k == "properties" and not is_properties))
         elif isinstance(v, list):
             out[k] = [_strip_for_gemini(i) if isinstance(i, dict) else i for i in v]
         else:

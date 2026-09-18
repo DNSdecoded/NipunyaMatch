@@ -54,3 +54,19 @@ async def test_500_raises_retryable() -> None:
     with pytest.raises(ProviderError) as e:
         await client.generate("m", "hi", SCHEMA)
     assert e.value.status == 500
+
+
+def test_strip_keeps_field_named_title() -> None:
+    from pydantic import BaseModel
+
+    from app.llm.gemini import _strip_for_gemini
+    from app.llm.schema_utils import inline_refs
+
+    class M(BaseModel):
+        title: str
+        default: int = 0
+
+    out = _strip_for_gemini(inline_refs(M.model_json_schema()))
+    assert set(out["properties"]) == {"title", "default"}
+    assert "title" not in out  # schema-level keyword still dropped
+    assert "default" not in out["properties"]["default"]
