@@ -1,4 +1,4 @@
-import fitz
+import pymupdf as fitz
 
 MAX_PAGES = 20
 MAX_BYTES = 10 * 1024 * 1024

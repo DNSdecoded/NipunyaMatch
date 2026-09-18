@@ -1,4 +1,4 @@
-import fitz
+import pymupdf as fitz
 import pytest
 
 from app.parsing.validate import InvalidPDF, validate_pdf

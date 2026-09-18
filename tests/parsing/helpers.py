@@ -1,4 +1,4 @@
-import fitz  # PyMuPDF
+import pymupdf as fitz
 
 
 def make_pdf(pages: list[list[tuple[float, float, str]]]) -> bytes:
