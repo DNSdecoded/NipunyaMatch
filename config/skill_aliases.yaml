@@ -1,0 +1,24 @@
+# alias: canonical  (case-insensitive on lookup)
+js: JavaScript
+javascript: JavaScript
+ts: TypeScript
+py: Python
+python3: Python
+postgres: PostgreSQL
+postgresql: PostgreSQL
+k8s: Kubernetes
+kubernetes: Kubernetes
+ml: Machine Learning
+machine learning: Machine Learning
+aws: AWS
+amazon web services: AWS
+gcp: Google Cloud
+google cloud platform: Google Cloud
+node: Node.js
+nodejs: Node.js
+node.js: Node.js
+react.js: React
+reactjs: React
+sklearn: scikit-learn
+scikit learn: scikit-learn
+tf: TensorFlow
