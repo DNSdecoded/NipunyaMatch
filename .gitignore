@@ -10,3 +10,4 @@ data/
 htmlcov/
 CLAUDE.md
 brag-output-*/
+.commandcode/
