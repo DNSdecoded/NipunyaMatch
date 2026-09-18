@@ -48,6 +48,7 @@ def test_full_flow(client: TestClient) -> None:
     job = r.json()
     assert job["required_skills"] == ["Python", "Docker"]
     job_id = job["id"]
+    assert [j["id"] for j in client.get("/api/jobs").json()] == [job_id]
 
     r = client.post(f"/api/jobs/{job_id}/resumes",
                     files=[("files", ("alice.pdf", _resume_pdf(), "application/pdf")),
@@ -86,6 +87,10 @@ def test_full_flow(client: TestClient) -> None:
     assert r.headers["content-type"].startswith("text/csv")
     r = client.get(f"/api/jobs/{job_id}/export?format=xlsx")
     assert r.headers["content-type"].startswith("application/vnd.openxmlformats")
+
+
+def test_list_jobs_empty(client: TestClient) -> None:
+    assert client.get("/api/jobs").json() == []
 
 
 def test_job_not_found(client: TestClient) -> None:

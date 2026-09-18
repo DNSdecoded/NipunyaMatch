@@ -10,8 +10,20 @@ def sidebar() -> None:
     st.sidebar.markdown(f"{dot} Provider: Gemini{extra}")
     st.sidebar.caption(f"Breaker: {h['breaker_state']}")
     job = st.session_state.get("job")
-    if job:
-        st.sidebar.markdown(f"**Job:** {job['title']}")
+    try:
+        jobs = get("/api/jobs")
+    except Exception:
+        jobs = []
+    if jobs:
+        ids = [j["id"] for j in jobs]
+        current = job["id"] if job and job["id"] in ids else ids[0]
+        picked = st.sidebar.selectbox(
+            "Active job", ids, index=ids.index(current),
+            format_func=lambda i: f"#{i} {next(j['title'] for j in jobs if j['id'] == i)}",
+        )
+        if not job or job["id"] != picked:
+            st.session_state["job"] = job = next(j for j in jobs if j["id"] == picked)
+            st.session_state.pop("chat", None)
         count = len(get(f"/api/jobs/{job['id']}/candidates"))
         st.sidebar.markdown(f"**Candidates:** {count}")
     else:

@@ -60,6 +60,11 @@ async def create(
     return _job_out(create_job(db, reqs, parsed.text))
 
 
+@router.get("")
+async def list_jobs(db: Session = Depends(get_db)) -> list[JobOut]:
+    return [_job_out(j) for j in db.scalars(select(Job).order_by(Job.id.desc())).all()]
+
+
 @router.get("/{job_id}")
 async def get_job(job_id: int, db: Session = Depends(get_db)) -> JobOut:
     return _job_out(_job_or_404(db, job_id))
