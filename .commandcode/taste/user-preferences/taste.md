@@ -1,0 +1,15 @@
+# User Preferences
+- Prefers extremely terse, imperative commands — "continue", "push it to github", "run the api", "restart streamlit". Expects action without discussion or confirmation. Confidence: 0.95
+- Does not elaborate on requests — expects the agent to infer context and proceed. Confidence: 0.9
+- Prefers MIT license for projects. Confidence: 0.7
+- Uses `.env.example` checked into repo, then copies to `.env` locally. Confidence: 0.7
+- Invokes tools/skills via slash commands (e.g. `/brag`). Confidence: 0.8
+- Prefers polished, high-energy, modern product launch feel over generic software demos. Confidence: 0.85
+- Prioritizes storytelling: clear beginning/build-up/payoff, lead with core value proposition, showcase distinctive features with real examples. Confidence: 0.85
+- Avoids unnecessary technical detail or filler in presentations — concise and visually excited. Confidence: 0.8
+- Zero tolerance for fabricated data in demos — must use real runs, real fixture quotes, real scores. Never blend or invent. Confidence: 0.95
+- Insists on mathematically consistent visuals — bar charts must sum to stated totals, component scores must be internally coherent. Confidence: 0.95
+- Demands precise, honest marketing claims — corrects overclaims like "local AI" (→ "local-first") and "no hallucinations" (→ "hallucinated claims get flagged, not ranked"). Confidence: 0.95
+- Provides feedback in a structured, prioritized hierarchy — "Must fix" / "Should fix" / "Nits" with numbered items, exact data, and rationale. Confidence: 0.9
+- Wants anti-hallucination and explainability as demo differentiators — explicitly asks for ❌ negative evidence and cross-candidate Q&A to prove transparency. Confidence: 0.9
+- Prefers real system intents (e.g. `explain_ranking`) over generic ones (e.g. `recommend`) in showcases — finds them more distinctive. Confidence: 0.85

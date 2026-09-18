@@ -14,6 +14,13 @@
 Local, single-user recruitment assistant: upload resume PDFs and one job description, get an
 auditable ranked table, and ask questions in plain English with cited reasoning.
 
+## Demo
+
+[![NipunyaMatch demo video](docs/media/demo-poster.jpg)](https://github.com/DNSdecoded/NipunyaMatch/raw/main/docs/media/demo.mp4)
+
+20-second walkthrough: ranked candidates → score breakdown → evidence check → grounded Q&A.
+[Download / open the MP4](docs/media/demo.mp4).
+
 ## 1. Project description and objectives
 
 **Goal.** Ingest resumes (PDF/text) and one job description, score each candidate with an
