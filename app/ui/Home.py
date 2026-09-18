@@ -18,7 +18,7 @@ def sidebar() -> None:
         ids = [j["id"] for j in jobs]
         current = job["id"] if job and job["id"] in ids else ids[0]
         picked = st.sidebar.selectbox(
-            "Active job", ids, index=ids.index(current),
+            "Active job", ids, index=ids.index(current), key="active_job",
             format_func=lambda i: f"#{i} {next(j['title'] for j in jobs if j['id'] == i)}",
         )
         if not job or job["id"] != picked:
@@ -34,7 +34,7 @@ def sidebar() -> None:
         st.sidebar.error("GEMINI_API_KEY not configured. Set it in .env and restart the API.")
 
 
-if __name__ == "__main__" or st.runtime.exists():
+if __name__ == "__main__":  # pages import sidebar(); only the Home script renders here
     st.set_page_config(page_title="NipunyaMatch", layout="wide")
     sidebar()
     st.title("NipunyaMatch")
