@@ -97,7 +97,8 @@ GEMINI_MODEL_QUERY=gemini-3.5-flash-lite
 MAX_CONCURRENT_LLM=1
 ```
 
-The gateway honours the `retry in Ns` delay Gemini puts in the 429 body; extractions and analyses
+When a task's model exhausts its retries the gateway tries `GEMINI_MODEL_FALLBACK` (default
+`gemini-3.5-flash-lite`) before OpenRouter — free-tier quotas and 503s are per model. It also honours the `retry in Ns` delay Gemini puts in the 429 body; extractions and analyses
 are cached by prompt hash, so re-uploading a batch only re-runs what failed. Scanned resumes need
 the Tesseract binary (`apt install tesseract-ocr`, `brew install tesseract`, or the Windows
 installer); text PDFs work without it. Model IDs live in `.env`, never in code; the defaults are

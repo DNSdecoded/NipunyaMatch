@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     gemini_model_extract: str = "gemini-3.5-flash-lite"
     gemini_model_analyze: str = "gemini-3.8-flash"
     gemini_model_query: str = "gemini-3.5-flash"
+    gemini_model_fallback: str = "gemini-3.5-flash-lite"  # tried when the task model fails
     openrouter_model: str = "google/gemini-3.8-flash"
     database_url: str = "sqlite:///./data/recruiter.db"
     embedding_backend: Literal["local", "gemini"] = "local"

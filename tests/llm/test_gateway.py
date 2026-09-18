@@ -74,15 +74,18 @@ async def test_retries_then_falls_back(gw: Gateway, db: Session, sleeps: list[fl
     gem = respx.post(f"{GEM}/models/gemini-3.8-flash:generateContent").mock(
         return_value=httpx.Response(429, json={})
     )
+    fb = respx.post(f"{GEM}/models/gemini-3.5-flash-lite:generateContent").mock(
+        return_value=httpx.Response(429, json={})
+    )
     ort = respx.post(f"{ORT}/chat/completions").mock(return_value=or_ok('{"x": 9}'))
     r = await gw.complete("p", Out, LLMTask.ANALYZE)
     assert r == Out(x=9)
-    assert gem.call_count == 3 and ort.call_count == 1
-    assert [round(s) for s in sleeps] == [1, 2]
-    assert all(1.0 <= sleeps[0] < 1.1 for _ in [0]) and 2.0 <= sleeps[1] < 2.1
+    assert gem.call_count == 3 and fb.call_count == 3 and ort.call_count == 1
+    assert [round(s) for s in sleeps] == [1, 2, 1, 2]
+    assert 1.0 <= sleeps[0] < 1.1 and 2.0 <= sleeps[1] < 2.1
     assert gw.last_provider == Provider.OPENROUTER
     statuses = [c.status for c in db.scalars(select(LLMCall)).all()]
-    assert statuses == ["error", "error", "error", "ok"]
+    assert statuses == ["error"] * 6 + ["ok"]
 
 
 async def test_retry_after_header_honoured(gw: Gateway, sleeps: list[float]) -> None:
@@ -148,3 +151,32 @@ async def test_fresh_bypasses_cache(gw: Gateway) -> None:
     assert await gw.complete("p", Out, LLMTask.EXTRACT, fresh=True) == Out(x=2)
     assert await gw.complete("p", Out, LLMTask.EXTRACT) == Out(x=2)  # fresh result re-cached
     assert route.call_count == 2
+
+
+async def test_gemini_model_fallback_before_openrouter(gw: Gateway, db: Session) -> None:
+    primary = respx.post(f"{GEM}/models/gemini-3.8-flash:generateContent").mock(
+        return_value=httpx.Response(503)
+    )
+    fallback = respx.post(f"{GEM}/models/gemini-3.5-flash-lite:generateContent").mock(
+        return_value=gem_ok('{"x": 3}')
+    )
+    ort = respx.post(f"{ORT}/chat/completions")
+    assert await gw.complete("p", Out, LLMTask.ANALYZE) == Out(x=3)
+    assert primary.call_count == 3 and fallback.call_count == 1 and ort.call_count == 0
+    assert gw.last_provider == Provider.GEMINI
+
+
+async def test_no_openrouter_and_gemini_429_raises_quota(
+    settings: Settings, session_factory: sessionmaker[Session]
+) -> None:
+    respx.post(f"{GEM}/models/gemini-3.5-flash-lite:generateContent").mock(
+        return_value=httpx.Response(429, json={"error": {"message": "retry in 40s"}})
+    )
+
+    async def no_sleep(_: float) -> None:
+        return None
+
+    g = Gateway(settings, session_factory, GeminiClient("k", GEM), None, sleep=no_sleep)
+    with pytest.raises(QuotaExhausted) as e:
+        await g.complete("p", Out, LLMTask.EXTRACT)
+    assert e.value.retry_after == 41.0

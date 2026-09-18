@@ -63,6 +63,7 @@ class Gateway:
         self._sleep = sleep
         self.last_provider: Provider | None = None
         self.call_count = 0
+        self._last_gemini_error: ProviderError | None = None
 
     def _model_for(self, task: LLMTask) -> str:
         s = self._settings
@@ -109,6 +110,7 @@ class Gateway:
             try:
                 resp = await self._gemini.generate(model, prompt, js)
             except ProviderError as e:
+                self._last_gemini_error = e
                 self._log(Provider.GEMINI, model, task, attempt, started, "error")
                 self.breaker.record_failure()
                 if not e.is_retryable or attempt == MAX_ATTEMPTS:
@@ -126,7 +128,11 @@ class Gateway:
         self, prompt: str, js: dict[str, Any], task: LLMTask
     ) -> LLMResponse:
         if self._openrouter is None:
-            raise NoProvider("Gemini unavailable and OPENROUTER_API_KEY not set")
+            last = self._last_gemini_error
+            if last is not None and last.status == 429:
+                raise QuotaExhausted(last.retry_after)
+            detail = f" (last Gemini error: {last})" if last else ""
+            raise NoProvider(f"Gemini unavailable and no fallback provider configured{detail}")
         model = self._settings.openrouter_model
         started = time.monotonic()
         try:
@@ -141,7 +147,12 @@ class Gateway:
         return resp
 
     async def _raw(self, prompt: str, js: dict[str, Any], task: LLMTask) -> str:
-        resp = await self._gemini_with_retry(self._model_for(task), prompt, js, task)
+        model = self._model_for(task)
+        resp = await self._gemini_with_retry(model, prompt, js, task)
+        fallback = self._settings.gemini_model_fallback
+        if resp is None and fallback and fallback != model:
+            # Same provider, different model: free-tier quotas and 503s are per model.
+            resp = await self._gemini_with_retry(fallback, prompt, js, task)
         if resp is None:
             resp = await self._openrouter_once(prompt, js, task)
         return resp.text
