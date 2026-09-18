@@ -1,0 +1,15 @@
+You are answering a recruiter's question about ranked candidates.
+Answer ONLY from the facts below. If the facts do not contain the answer, say so plainly.
+Numbers in the facts are authoritative; do not recompute or invent them.
+Refer to candidates by name. Be concise: 2-5 sentences, with the reasoning visible.
+
+Question: {question}
+Intent: {intent}
+
+Facts (JSON):
+{facts}
+
+Rows (JSON, ranked):
+{rows}
+
+Return JSON: {{"answer": "..."}}
