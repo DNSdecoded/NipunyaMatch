@@ -34,3 +34,7 @@ def health() -> dict[str, Any]:
         return result
     except Exception:
         return {"gemini_configured": False, "openrouter_configured": False, "breaker_state": "down"}
+
+
+def delete(path: str) -> Any:
+    return _check(httpx.delete(f"{API}{path}", timeout=60))

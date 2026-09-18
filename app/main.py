@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.api.admin import router as admin_router
 from app.api.candidates import router as candidates_router
 from app.api.errors import install_error_handlers
 from app.api.health import router as health_router
@@ -62,6 +63,7 @@ def create_app(
     app.include_router(health_router)
     app.include_router(jobs_router)
     app.include_router(candidates_router)
+    app.include_router(admin_router)
     return app
 
 
