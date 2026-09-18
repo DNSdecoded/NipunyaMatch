@@ -1,0 +1,12 @@
+version: "1.0"
+weights:
+  required_skill_coverage: 0.35
+  preferred_skill_coverage: 0.15
+  experience_fit: 0.20
+  education_fit: 0.10
+  llm_fit_score: 0.20
+embedding_threshold: 0.75
+embedding_credit: 0.8
+bands:
+  shortlist: 75
+  consider: 50
