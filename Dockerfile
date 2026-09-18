@@ -12,5 +12,8 @@ COPY . .
 # Model is baked above; never call out to huggingface.co at runtime (rate-limited from Cloud Run).
 ENV HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
 RUN uv sync --frozen --no-dev && chmod +x entrypoint.sh && mkdir -p data
+# Seed the demo DB at build time (no LLM calls) so a cold instance serves immediately
+# instead of pegging its single vCPU for minutes and starving Streamlit's WebSockets.
+RUN GEMINI_API_KEY=build-time-unused /app/.venv/bin/python scripts/seed.py
 EXPOSE 8080 8000 8501
 CMD ["./entrypoint.sh"]
