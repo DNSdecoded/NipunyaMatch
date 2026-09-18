@@ -49,8 +49,10 @@ def create_app(
     @app.exception_handler(QuotaExhausted)
     async def _quota(_: Request, e: QuotaExhausted) -> JSONResponse:
         ra = int(e.retry_after) if e.retry_after else None
-        return _err(429, "QUOTA_EXHAUSTED",
-                    "Both LLM providers are rate-limited. Try again later.", ra)
+        msg = "Both LLM providers are rate-limited or out of credits. Try again later."
+        if ra:
+            msg += f" Retry in about {ra}s."
+        return _err(429, "QUOTA_EXHAUSTED", msg, ra)
 
     @app.exception_handler(NoProvider)
     async def _noprov(_: Request, e: NoProvider) -> JSONResponse:

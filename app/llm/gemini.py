@@ -1,3 +1,4 @@
+import re
 from typing import Any
 
 import httpx
@@ -24,6 +25,18 @@ def _strip_for_gemini(schema: dict[str, Any], is_properties: bool = False) -> di
     return out
 
 
+_RETRY_IN = re.compile(r"retry in ([\d.]+)s", re.I)
+
+
+def _retry_after(resp: httpx.Response) -> float | None:
+    """Gemini 429s carry the delay in the JSON body ("Please retry in 43.7s"), not a header."""
+    if ra := resp.headers.get("retry-after"):
+        return float(ra)
+    if m := _RETRY_IN.search(resp.text):
+        return min(float(m.group(1)) + 1.0, 60.0)
+    return None
+
+
 class GeminiClient:
     def __init__(self, api_key: str, base_url: str, http: httpx.AsyncClient | None = None) -> None:
         self._key = api_key
@@ -48,8 +61,7 @@ class GeminiClient:
         except httpx.HTTPError as e:
             raise ProviderError(503, str(e)) from e
         if resp.status_code != 200:
-            ra = resp.headers.get("retry-after")
-            raise ProviderError(resp.status_code, resp.text[:200], float(ra) if ra else None)
+            raise ProviderError(resp.status_code, resp.text[:200], _retry_after(resp))
         data = resp.json()
         text = data["candidates"][0]["content"]["parts"][0]["text"]
         usage = data.get("usageMetadata", {})

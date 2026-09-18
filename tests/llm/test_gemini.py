@@ -70,3 +70,15 @@ def test_strip_keeps_field_named_title() -> None:
     assert set(out["properties"]) == {"title", "default"}
     assert "title" not in out  # schema-level keyword still dropped
     assert "default" not in out["properties"]["default"]
+
+
+@respx.mock
+async def test_429_retry_delay_parsed_from_body() -> None:
+    respx.post(f"{BASE}/models/m:generateContent").mock(
+        return_value=httpx.Response(
+            429, json={"error": {"message": "Quota exceeded. Please retry in 43.7s."}}
+        )
+    )
+    with pytest.raises(ProviderError) as e:
+        await GeminiClient(api_key="k", base_url=BASE).generate("m", "hi", SCHEMA)
+    assert e.value.retry_after == 44.7

@@ -133,7 +133,7 @@ class Gateway:
             resp = await self._openrouter.generate(model, prompt, js)
         except ProviderError as e:
             self._log(Provider.OPENROUTER, model, task, 1, started, "error")
-            if e.status == 429:
+            if e.status in (429, 402):  # 402 = OpenRouter account out of credits
                 raise QuotaExhausted(e.retry_after) from e
             raise NoProvider(str(e)) from e
         self._log(Provider.OPENROUTER, model, task, 1, started, "ok", resp)
