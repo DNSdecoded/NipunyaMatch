@@ -1,0 +1,13 @@
+Extract hiring requirements from this job description. Return JSON matching the schema.
+
+Rules:
+- required_skills: technologies/skills stated as must-have or required. Copy names verbatim.
+- preferred_skills: nice-to-have, bonus, or "familiarity with" items.
+- min_years: minimum years of experience if stated, else null.
+- education_level: minimum degree if stated: high_school, associate, bachelor, master, phd; else null.
+- title: the role title.
+
+Job description:
+<<<
+{jd}
+>>>
