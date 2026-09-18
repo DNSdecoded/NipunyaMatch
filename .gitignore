@@ -11,3 +11,5 @@ htmlcov/
 CLAUDE.md
 brag-output-*/
 .commandcode/
+hf_secret.txt
+*.secret
