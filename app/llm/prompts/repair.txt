@@ -1,0 +1,9 @@
+Your previous response did not match the required JSON schema.
+
+Validation error:
+{error}
+
+Previous response:
+{previous}
+
+Return ONLY corrected JSON that satisfies the schema. Do not add commentary.
