@@ -6,6 +6,7 @@
 ![mypy](https://img.shields.io/badge/types-mypy%20--strict-2a6db0)
 ![coverage](https://img.shields.io/badge/coverage-%E2%89%A570%25%20gate-brightgreen)
 ![tags](https://img.shields.io/github/v/tag/DNSdecoded/NipunyaMatch?label=release)
+[![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 Local, single-user recruitment assistant: upload resume PDFs and one job description, get an
 auditable ranked table, and ask questions in plain English with cited reasoning.
