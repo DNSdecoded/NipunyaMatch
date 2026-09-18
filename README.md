@@ -9,6 +9,7 @@
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![gemini](https://img.shields.io/badge/LLM-Gemini%20Flash-4285F4?logo=google&logoColor=white)](https://ai.google.dev/)
 [![openrouter](https://img.shields.io/badge/fallback-OpenRouter-6E56CF)](https://openrouter.ai/)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/DNSdecoded/NipunyaMatch)
 
 Local, single-user recruitment assistant: upload resume PDFs and one job description, get an
 auditable ranked table, and ask questions in plain English with cited reasoning.
