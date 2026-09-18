@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -13,6 +14,9 @@ from app.llm.gateway import Gateway
 from app.llm.gemini import GeminiClient
 from app.llm.openrouter import OpenRouterClient
 from app.main import create_app
+from app.scoring.engine import ScoringEngine, load_config
+from app.scoring.skills import SkillMatcher, load_aliases
+from tests.scoring.fakes import FakeEmbedder
 
 GEM_URL = "https://generativelanguage.googleapis.com/v1beta"
 ORT_URL = "https://openrouter.ai/api/v1"
@@ -65,9 +69,21 @@ def gateway(settings: Settings, session_factory: sessionmaker[Session]) -> Gatew
 
 
 @pytest.fixture
+def scoring_engine() -> ScoringEngine:
+    cfg = load_config(Path("config/scoring.yaml"))
+    matcher = SkillMatcher(load_aliases(Path("config/skill_aliases.yaml")), FakeEmbedder({}),
+                           cfg.embedding_threshold, cfg.embedding_credit)
+    return ScoringEngine(cfg, matcher)
+
+
+@pytest.fixture
 def client(
-    settings: Settings, session_factory: sessionmaker[Session], gateway: Gateway
+    settings: Settings, session_factory: sessionmaker[Session], gateway: Gateway,
+    scoring_engine: ScoringEngine,
 ) -> Iterator[TestClient]:
-    app = create_app(settings, session_factory, gateway)
+    from app.api.batches import BATCHES
+
+    BATCHES.clear()
+    app = create_app(settings, session_factory, gateway, scoring_engine)
     with TestClient(app) as c:
         yield c

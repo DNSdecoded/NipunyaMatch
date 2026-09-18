@@ -1,0 +1,142 @@
+import csv
+import io
+from typing import Literal
+
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Request, UploadFile
+from fastapi.responses import Response
+from sqlalchemy import Select, select
+from sqlalchemy.orm import Session
+
+from app.api.batches import new_batch, process_batch
+from app.api.deps import get_db
+from app.api.errors import ApiError
+from app.api.schemas import CandidateRow, JobOut, QueryIn, row_from
+from app.db.models import Analysis, Candidate, CandidateSkill, Job, Skill
+from app.parsing.pipeline import parse_pdf, parse_text
+from app.parsing.validate import InvalidPDF
+from app.query.schemas import QueryResponse
+from app.query.service import answer_question
+from app.scoring.analyzer import rescore_candidate
+from app.scoring.jd import create_job, job_requirements, parse_jd
+
+router = APIRouter(prefix="/api/jobs")
+MAX_FILES = 50
+
+
+def _job_or_404(db: Session, job_id: int) -> Job:
+    job = db.get(Job, job_id)
+    if job is None:
+        raise ApiError(404, "NOT_FOUND", f"Job {job_id} not found")
+    return job
+
+
+def _job_out(job: Job) -> JobOut:
+    r = job_requirements(job)
+    return JobOut(id=job.id, title=r.title, required_skills=r.required_skills,
+                  preferred_skills=r.preferred_skills, min_years=r.min_years,
+                  education_level=r.education_level)
+
+
+def _ranked(job_id: int) -> Select[tuple[Analysis]]:
+    return (select(Analysis).join(Candidate).where(Analysis.job_id == job_id)
+            .order_by(Analysis.final_score.desc(), Candidate.name))
+
+
+@router.post("", status_code=201)
+async def create(
+    request: Request, db: Session = Depends(get_db),
+    text: str | None = Form(None), file: UploadFile | None = File(None),
+) -> JobOut:
+    if file is not None:
+        try:
+            parsed = parse_pdf(await file.read())
+        except InvalidPDF as e:
+            raise ApiError(413 if e.code == "FILE_TOO_LARGE" else 400, e.code, e.message) from e
+    elif text:
+        parsed = parse_text(text)
+    else:
+        raise ApiError(400, "MISSING_JD", "Provide a job description as text or a PDF file.")
+    reqs = await parse_jd(request.app.state.gateway, parsed.text)
+    return _job_out(create_job(db, reqs, parsed.text))
+
+
+@router.get("/{job_id}")
+async def get_job(job_id: int, db: Session = Depends(get_db)) -> JobOut:
+    return _job_out(_job_or_404(db, job_id))
+
+
+@router.post("/{job_id}/resumes", status_code=202)
+async def upload_resumes(
+    job_id: int, request: Request, background: BackgroundTasks,
+    files: list[UploadFile] = File(...), db: Session = Depends(get_db),
+) -> dict[str, str]:
+    if len(files) > MAX_FILES:
+        raise ApiError(400, "TOO_MANY_FILES", f"Upload at most {MAX_FILES} resumes per batch.")
+    _job_or_404(db, job_id)
+    payload = [(f.filename or "resume.pdf", await f.read()) for f in files]
+    batch = new_batch(job_id, [n for n, _ in payload])
+    background.add_task(process_batch, request.app.state, batch.id, payload)
+    return {"batch_id": batch.id}
+
+
+@router.get("/{job_id}/candidates")
+async def list_candidates(
+    job_id: int, db: Session = Depends(get_db),
+    min_score: int = 0, skill: str | None = None, limit: int = 50,
+) -> list[CandidateRow]:
+    _job_or_404(db, job_id)
+    q = _ranked(job_id).where(Analysis.final_score >= min_score)
+    if skill:
+        has = (select(CandidateSkill.candidate_id).join(Skill)
+               .where(Skill.canonical_name.ilike(skill)))
+        q = q.where(Candidate.id.in_(has))
+    return [row_from(a) for a in db.scalars(q.limit(min(limit, 50))).all()]
+
+
+@router.post("/{job_id}/query")
+async def query(
+    job_id: int, body: QueryIn, request: Request, db: Session = Depends(get_db)
+) -> QueryResponse:
+    _job_or_404(db, job_id)
+    state = request.app.state
+    return await answer_question(state.gateway, db, job_id, body.question, state.embedder)
+
+
+@router.post("/{job_id}/rescore")
+async def rescore(job_id: int, request: Request, db: Session = Depends(get_db)) -> dict[str, int]:
+    job = _job_or_404(db, job_id)
+    engine = request.app.state.engine
+    cands = db.scalars(select(Candidate).join(Analysis).where(Analysis.job_id == job_id)).all()
+    for c in cands:
+        rescore_candidate(db, engine, c, job)
+    return {"rescored": len(cands)}
+
+
+@router.get("/{job_id}/export")
+async def export(
+    job_id: int, db: Session = Depends(get_db), format: Literal["csv", "xlsx"] = "csv"
+) -> Response:
+    _job_or_404(db, job_id)
+    rows = [row_from(a).model_dump() for a in db.scalars(_ranked(job_id)).all()]
+    headers = list(CandidateRow.model_fields)
+    if format == "csv":
+        buf = io.StringIO()
+        w = csv.DictWriter(buf, fieldnames=headers)
+        w.writeheader()
+        w.writerows(rows)
+        return Response(buf.getvalue(), media_type="text/csv",
+                        headers={"Content-Disposition": "attachment; filename=candidates.csv"})
+    from openpyxl import Workbook
+
+    wb = Workbook()
+    ws = wb.active
+    ws.append(headers)
+    for r in rows:
+        ws.append([r[h] for h in headers])
+    out = io.BytesIO()
+    wb.save(out)
+    return Response(
+        out.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=candidates.xlsx"},
+    )
