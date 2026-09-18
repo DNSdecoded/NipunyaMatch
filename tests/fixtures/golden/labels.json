@@ -1,0 +1,182 @@
+{
+  "01_asha.pdf": {
+    "name": "Asha Rao",
+    "email": "asha.rao@example.com",
+    "phone": "+91 98765 43210",
+    "skills": [
+      "Python",
+      "FastAPI",
+      "Docker",
+      "PostgreSQL",
+      "TensorFlow"
+    ],
+    "start_date": "2018-06",
+    "end_date": null,
+    "degree": "B.Tech Computer Science",
+    "llm_fit_score": 85
+  },
+  "02_ben.pdf": {
+    "name": "Ben Carter",
+    "email": "ben.carter@example.com",
+    "phone": "+1 415 555 0101",
+    "skills": [
+      "Python",
+      "Django",
+      "PostgreSQL"
+    ],
+    "start_date": "2016-01",
+    "end_date": "2023-12",
+    "degree": "BSc Software Engineering",
+    "llm_fit_score": 70
+  },
+  "03_chen.pdf": {
+    "name": "Chen Wei",
+    "email": "chen.wei@example.com",
+    "phone": "+86 138 0000 0000",
+    "skills": [
+      "Java",
+      "Spring",
+      "Kubernetes",
+      "AWS"
+    ],
+    "start_date": "2015-03",
+    "end_date": null,
+    "degree": "M.S. Computer Science",
+    "llm_fit_score": 55
+  },
+  "04_dana.pdf": {
+    "name": "Dana Ortiz",
+    "email": "dana.ortiz@example.com",
+    "phone": "+34 600 000 000",
+    "skills": [
+      "Python",
+      "scikit-learn",
+      "Pandas",
+      "SQL"
+    ],
+    "start_date": "2021-09",
+    "end_date": null,
+    "degree": "MSc Data Science",
+    "llm_fit_score": 65
+  },
+  "05_eli.pdf": {
+    "name": "Eli Novak",
+    "email": "eli.novak@example.com",
+    "phone": "+420 600 000 000",
+    "skills": [
+      "Python",
+      "FastAPI",
+      "Docker",
+      "AWS",
+      "PostgreSQL"
+    ],
+    "start_date": "2019-02",
+    "end_date": null,
+    "degree": "B.Eng",
+    "llm_fit_score": 88
+  },
+  "06_fatima.pdf": {
+    "name": "Fatima Khan",
+    "email": "fatima.khan@example.com",
+    "phone": "+92 300 0000000",
+    "skills": [
+      "JavaScript",
+      "React",
+      "Node.js"
+    ],
+    "start_date": "2020-05",
+    "end_date": null,
+    "degree": "BS Computer Science",
+    "llm_fit_score": 30
+  },
+  "07_grace.pdf": {
+    "name": "Grace Obi",
+    "email": "grace.obi@example.com",
+    "phone": "+234 800 000 0000",
+    "skills": [
+      "Python",
+      "Flask",
+      "Docker",
+      "MySQL"
+    ],
+    "start_date": "2017-08",
+    "end_date": null,
+    "degree": "B.Tech IT",
+    "llm_fit_score": 62
+  },
+  "08_hiro.pdf": {
+    "name": "Hiro Tanaka",
+    "email": "hiro.tanaka@example.com",
+    "phone": "+81 90 0000 0000",
+    "skills": [
+      "Go",
+      "Docker",
+      "Kubernetes",
+      "PostgreSQL"
+    ],
+    "start_date": "2014-04",
+    "end_date": null,
+    "degree": "Bachelor of Engineering",
+    "llm_fit_score": 50
+  },
+  "09_ivy.pdf": {
+    "name": "Ivy Larsen",
+    "email": "ivy.larsen@example.com",
+    "phone": "+45 20 00 00 00",
+    "skills": [
+      "Python",
+      "PyTorch",
+      "FastAPI",
+      "Docker"
+    ],
+    "start_date": "2022-01",
+    "end_date": null,
+    "degree": "PhD Machine Learning",
+    "llm_fit_score": 80
+  },
+  "10_jonas.pdf": {
+    "name": "Jonas Meyer",
+    "email": "jonas.meyer@example.com",
+    "phone": "+49 151 00000000",
+    "skills": [
+      "C++",
+      "Python",
+      "Linux"
+    ],
+    "start_date": "2012-10",
+    "end_date": null,
+    "degree": "Diploma Informatik",
+    "llm_fit_score": 40
+  },
+  "11_kavya.pdf": {
+    "name": "Kavya Iyer",
+    "email": "kavya.iyer@example.com",
+    "phone": "+91 90000 00000",
+    "skills": [
+      "Python",
+      "FastAPI",
+      "PostgreSQL",
+      "ML",
+      "Docker",
+      "Kubernetes"
+    ],
+    "start_date": "2019-07",
+    "end_date": null,
+    "degree": "B.Tech CSE",
+    "llm_fit_score": 92
+  },
+  "12_leo.pdf": {
+    "name": "Leo Santos",
+    "email": "leo.santos@example.com",
+    "phone": "+55 11 90000 0000",
+    "skills": [
+      "PHP",
+      "Laravel",
+      "MySQL"
+    ],
+    "start_date": "2018-03",
+    "end_date": null,
+    "degree": "Associate Degree",
+    "llm_fit_score": 20
+  }
+}

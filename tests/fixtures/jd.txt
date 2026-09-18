@@ -1,0 +1,5 @@
+Senior Backend Engineer
+
+Required: Python, FastAPI, Docker, PostgreSQL, machine learning experience.
+Nice to have: AWS, Kubernetes.
+Minimum 3 years of professional experience. Bachelor's degree in Computer Science or related field.
