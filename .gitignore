@@ -13,3 +13,4 @@ brag-output-*/
 .commandcode/
 hf_secret.txt
 *.secret
+docs/demo-script.md
