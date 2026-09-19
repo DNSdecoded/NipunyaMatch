@@ -9,7 +9,7 @@ from app.parsing.pipeline import parse_pdf
 FIX = Path("tests/fixtures")
 LABELS = json.loads((FIX / "golden/labels.json").read_text())
 _HAS_TESSERACT = bool(
-    shutil.which("tesseract") or Path(r"C:\Program Files\Tesseract-OCR	esseract.exe").exists()
+    shutil.which("tesseract") or Path(r"C:\Program Files\Tesseract-OCR\tesseract.exe").exists()
 )
 
 
