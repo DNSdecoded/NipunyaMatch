@@ -48,8 +48,80 @@ def sidebar() -> None:
         st.sidebar.error("GEMINI_API_KEY not configured. Set it in .env and restart the API.")
 
 
+BANDS = [("0-49", 0, 49), ("50-74", 50, 74), ("75-100", 75, 100)]
+REC_ORDER = ["Shortlist", "Consider", "Reject"]
+
+
+def _dashboard(job: dict[str, object]) -> None:
+    rows = get(f"/api/jobs/{job['id']}/candidates")
+    st.subheader(f"#{job['id']} {job['title']}")
+    st.caption(
+        f"Required: {', '.join(job['required_skills']) or '—'} · "
+        f"Preferred: {', '.join(job['preferred_skills']) or '—'}"
+    )
+    if not rows:
+        st.info("No resumes scored yet for this job.")
+        if st.button("Upload resumes"):
+            st.switch_page("pages/1_Setup.py")
+        return
+    recs = {r: sum(1 for x in rows if x["recommendation"] == r) for r in REC_ORDER}
+    k = st.columns(4)
+    k[0].metric("Candidates", len(rows))
+    k[1].metric("🟢 Shortlist", recs["Shortlist"])
+    k[2].metric("🟡 Consider", recs["Consider"])
+    k[3].metric("🔴 Reject", recs["Reject"])
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("**Score distribution**")
+        dist = {label: sum(1 for x in rows if lo <= x["final_score"] <= hi)
+                for label, lo, hi in BANDS}
+        st.bar_chart(dist, x_label="final score", y_label="candidates")
+    with c2:
+        st.markdown("**Required skills coverage**")
+        cov = {x["name"] or f"#{x['candidate_id']}": x["matched"] for x in rows[:10]}
+        st.bar_chart(cov, x_label="candidate", y_label="skills matched", horizontal=True)
+
+    st.markdown("**Top 5**")
+    st.dataframe(
+        [{"Name": x["name"], "Score": x["final_score"], "Rec": x["recommendation"],
+          "Matched": x["matched"], "Missing": x["missing"], "Years": x["years"]}
+         for x in rows[:5]],
+        width="stretch", hide_index=True,
+    )
+    b = st.columns(4)
+    if b[0].button("➕ Upload more"):
+        st.switch_page("pages/1_Setup.py")
+    if b[1].button("📋 All candidates"):
+        st.switch_page("pages/3_Candidates.py")
+    if b[2].button("💬 Ask the assistant"):
+        st.switch_page("pages/4_Assistant.py")
+    if b[3].button("🗄️ Data"):
+        st.switch_page("pages/5_Data.py")
+
+
+def _empty() -> None:
+    st.markdown("Screen resumes against a job description with an auditable hybrid score.")
+    steps = [
+        ("1 · Setup", "Paste or upload a job description; required/preferred skills are parsed."),
+        ("2 · Upload", "Drop resume PDFs. Each is parsed, extracted and scored in the background."),
+        ("3 · Review", "Ranked table, component breakdown, evidence-linked skills, export."),
+        ("4 · Ask", "Plain-English questions answered from stored data with cited sources."),
+    ]
+    for col, (title, body) in zip(st.columns(4), steps, strict=True):
+        with col.container(border=True):
+            st.markdown(f"**{title}**")
+            st.caption(body)
+    if st.button("Start on the Setup page", type="primary"):
+        st.switch_page("pages/1_Setup.py")
+
+
 if __name__ == "__main__":  # pages import sidebar(); only the Home script renders here
     st.set_page_config(page_title="NipunyaMatch", layout="wide")
     sidebar()
     st.title("NipunyaMatch")
-    st.write("1. Setup a job → 2. Upload resumes → 3. Review candidates → 4. Ask questions.")
+    active = st.session_state.get("job")
+    if active:
+        _dashboard(active)
+    else:
+        _empty()
