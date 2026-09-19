@@ -11,9 +11,17 @@ OCR_THRESHOLD = 100
 DPI = 300
 
 
+_WIN_TESSERACT = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+
+
 def _tesseract(img: Any) -> str:
+    import shutil
+    from pathlib import Path
+
     import pytesseract
 
+    if shutil.which("tesseract") is None and Path(_WIN_TESSERACT).exists():
+        pytesseract.pytesseract.tesseract_cmd = _WIN_TESSERACT  # winget install, not on PATH
     return str(pytesseract.image_to_string(img))
 
 

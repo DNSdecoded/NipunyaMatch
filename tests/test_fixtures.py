@@ -11,10 +11,12 @@ LABELS = json.loads((FIX / "golden/labels.json").read_text())
 
 @pytest.mark.parametrize("fname", sorted(LABELS))
 def test_fixture_parses_with_expected_fields(fname: str) -> None:
-    if fname == "10_jonas.pdf":
-        pytest.skip("image-only fixture needs Tesseract; OCR path covered by unit tests")
     doc = parse_pdf((FIX / "resumes" / fname).read_bytes())
     lab = LABELS[fname]
+    if fname == "10_jonas.pdf":  # image-only: OCR'd; exact strings depend on Tesseract
+        assert doc.extraction_method == "pymupdf+ocr" and doc.char_count > 200
+        assert lab["name"].split()[0] in doc.text
+        return
     assert lab["email"] in doc.text
     for skill in lab["skills"]:
         assert skill in doc.text
