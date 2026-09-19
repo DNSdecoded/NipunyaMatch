@@ -301,6 +301,22 @@ Sidebar on every page: provider status dot, breaker state, **Active job** picker
    History is stored per job and survives page refresh and restarts.
 5. **Data** — everything in the local DB across jobs; delete a job, a candidate, or clear all.
 
+### Repository layout and how it was built
+
+```
+app/            api · llm (gateway, prompts/) · parsing · extraction · scoring · query · db · ui
+config/         scoring.yaml (weights, bands), skill_aliases.yaml
+tests/          unit + integration, fixtures/ (12 synthetic resumes, golden labels, sample JD)
+scripts/        seed.py (LLM-free demo data), evaluate.py, make_fixtures.py, deploy.sh
+docs/           specs.md (engineering contracts), architecture.md, media/, superpowers/ (design specs)
+```
+
+The project was built spec-first: `docs/specs.md` fixes the contracts (schemas, API, DB, scoring
+rules, gateway behaviour), and each module was implemented test-first against it in eight
+phases — skeleton → gateway → parsing → extraction → scoring → query → API/UI → hardening —
+tagged `v0.0` … `v0.7`. The task-by-task working plan used during the build is not part of the
+repository; the specs and the git history are the record.
+
 ## 8. How to run
 
 Two processes: the FastAPI backend on **:8000** and the Streamlit UI on **:8501** (the UI talks
