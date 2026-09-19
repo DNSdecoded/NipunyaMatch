@@ -14,3 +14,4 @@ brag-output-*/
 hf_secret.txt
 *.secret
 docs/demo-script.md
+implementation_plan.md
