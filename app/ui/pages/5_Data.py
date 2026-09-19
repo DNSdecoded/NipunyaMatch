@@ -16,6 +16,26 @@ def _refresh() -> None:
     st.rerun()
 
 
+st.subheader("Tables")
+tables = get("/api/tables")
+tc1, tc2 = st.columns([1, 3])
+with tc1:
+    st.dataframe(
+        [{"table": t["name"], "rows": t["rows"]} for t in tables],
+        width="stretch", hide_index=True,
+    )
+with tc2:
+    pick = st.selectbox(
+        "Browse", [t["name"] for t in tables], key="table_pick",
+        format_func=lambda n: f"{n} ({next(t['rows'] for t in tables if t['name'] == n)} rows)",
+    )
+    data = get(f"/api/tables/{pick}", limit=200)
+    st.caption(f"{len(data['rows'])} of {next(t['rows'] for t in tables if t['name'] == pick)} rows"
+               " · long text trimmed · embeddings hidden")
+    st.dataframe(data["rows"] or [{c: None for c in data["columns"]}], width="stretch",
+                 hide_index=True)
+
+st.divider()
 st.subheader("Jobs")
 jobs = get("/api/jobs")
 if not jobs:

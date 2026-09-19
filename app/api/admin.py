@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import forbid_in_demo, get_db
 from app.api.errors import ApiError
-from app.db.models import Analysis, Candidate, ChatTurn, Job, SkillMatchRow
+from app.db.models import Analysis, Base, Candidate, ChatTurn, Job, SkillMatchRow
 
 router = APIRouter(prefix="/api")
 
@@ -75,3 +75,35 @@ async def delete_job(job_id: int, db: Session = Depends(get_db)) -> dict[str, in
     db.delete(job)  # job_skills cascade
     db.commit()
     return {"deleted_jobs": 1, "deleted_analyses": n}
+
+
+_TABLES = {t.name: t for t in Base.metadata.sorted_tables}  # whitelist: ORM tables only
+_BLOB_COLS = {"embedding"}
+
+
+@router.get("/tables")
+async def list_tables(db: Session = Depends(get_db)) -> list[dict[str, object]]:
+    """Every table with its row count; for the Data page's raw browser."""
+    return [
+        {"name": name, "rows": db.execute(select(func.count()).select_from(t)).scalar_one()}
+        for name, t in _TABLES.items()
+    ]
+
+
+@router.get("/tables/{name}")
+async def read_table(
+    name: str, limit: int = 200, db: Session = Depends(get_db)
+) -> dict[str, object]:
+    t = _TABLES.get(name)
+    if t is None:
+        raise ApiError(404, "NOT_FOUND", f"No table named {name}")
+    cols = [c.name for c in t.columns if c.name not in _BLOB_COLS]
+    stmt = select(*[t.c[c] for c in cols]).limit(min(limit, 500))
+    rows = [dict(zip(cols, r, strict=True)) for r in db.execute(stmt).all()]
+    for r in rows:  # JSON-safe: datetimes -> ISO, long text trimmed
+        for k, v in r.items():
+            if hasattr(v, "isoformat"):
+                r[k] = v.isoformat()
+            elif isinstance(v, str) and len(v) > 300:
+                r[k] = v[:300] + "…"
+    return {"name": name, "columns": cols, "rows": rows}
