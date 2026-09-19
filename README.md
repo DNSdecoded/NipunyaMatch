@@ -16,7 +16,7 @@ auditable ranked table, and ask questions in plain English with cited reasoning.
 
 ## Demo
 
-<video src="https://github.com/DNSdecoded/NipunyaMatch/releases/download/v0.7/demo.mp4" controls muted playsinline width="100%"></video>
+<video src="https://github.com/DNSdecoded/NipunyaMatch/releases/download/v1.0.0/demo.mp4" controls muted playsinline width="100%"></video>
 
 ![NipunyaMatch demo](docs/media/demo.gif)
 
@@ -25,7 +25,7 @@ Gemini key (sidebar). Cold start after idle takes ~1–3 min (the API seeds itse
 Data is shared between visitors and resets on restart; deletes are disabled there.
 
 20-second walkthrough: ranked candidates → score breakdown → evidence check → grounded Q&A.
-[MP4 (release asset)](https://github.com/DNSdecoded/NipunyaMatch/releases/download/v0.7/demo.mp4) · [MP4 (repo)](docs/media/demo.mp4)
+[MP4 (release asset)](https://github.com/DNSdecoded/NipunyaMatch/releases/download/v1.0.0/demo.mp4) · [MP4 (repo)](docs/media/demo.mp4)
 
 ## 1. Project description and objectives
 
@@ -282,6 +282,9 @@ candidate IDs as sources.
 | `POST` | `/api/jobs/{id}/query` | NL question → answer, intent, sources, provider; turn saved to `chat_turns` |
 | `GET` | `/api/jobs/{id}/chat` | Conversation history for the job, oldest first |
 | `POST` | `/api/jobs/{id}/rescore` | Re-run deterministic scoring with current weights, no LLM |
+| `POST` | `/api/candidates/{id}/reanalyze` | `?job_id=` — fresh LLM analysis (cache bypassed) + rescoring for one candidate |
+| `GET` | `/api/tables` | Table names with row counts (Data page) |
+| `GET` | `/api/tables/{name}` | Raw rows of one table; `limit` (default 200, max 500) |
 | `GET` | `/api/jobs/{id}/export` | `?format=csv` or `xlsx` |
 | `GET` | `/api/health` | Provider configuration and breaker state |
 
@@ -314,7 +317,7 @@ docs/           specs.md (engineering contracts), architecture.md, media/, super
 The project was built spec-first: `docs/specs.md` fixes the contracts (schemas, API, DB, scoring
 rules, gateway behaviour), and each module was implemented test-first against it in eight
 phases — skeleton → gateway → parsing → extraction → scoring → query → API/UI → hardening —
-tagged `v0.0` … `v0.7`. The task-by-task working plan used during the build is not part of the
+tagged `v0.0` … `v0.7`, then released as `v1.0.0`. The task-by-task working plan used during the build is not part of the
 repository; the specs and the git history are the record.
 
 ## 8. How to run
