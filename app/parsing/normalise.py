@@ -7,15 +7,17 @@ _CHARS = {
 }
 _BULLET = re.compile(r"^\s*([•\-\*▪●○◦‣]|\d+[.)])\s+")
 _PAGE_NO = re.compile(r"^\s*(page\s*)?\d+(\s*(of|/)\s*\d+)?\s*$", re.I)
-
-
-_ICON_GLYPHS = re.compile(r"[-]")  # private-use area: FontAwesome icons in templates
+# Private-use area: FontAwesome-style icon glyphs that resume templates put before contact links.
+_ICON_GLYPHS = re.compile("[-]")
+# Small-caps headings come out as "S KILLS", "P ROJECTS": a lone capital, a space, then caps.
+_SMALL_CAPS = re.compile(r"\b([A-Z]) ([A-Z]{2,})\b")
 
 
 def _fix_chars(s: str) -> str:
     for k, v in _CHARS.items():
         s = s.replace(k, v)
-    return _ICON_GLYPHS.sub("", s)
+    s = _ICON_GLYPHS.sub("", s)
+    return _SMALL_CAPS.sub(r"\1\2", s)
 
 
 def _strip_repeated(pages: list[list[str]]) -> list[list[str]]:

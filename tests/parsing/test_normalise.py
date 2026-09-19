@@ -25,3 +25,8 @@ def test_collapse_whitespace() -> None:
 
 def test_icon_glyphs_removed() -> None:
     assert normalise([" mail@x.com  github.com/x"]) == "mail@x.com github.com/x"
+
+
+def test_small_caps_headings_rejoined() -> None:
+    out = normalise(["S KILLS", "S UMMER T RAINING", "A PhD in X"])
+    assert out.splitlines() == ["SKILLS", "SUMMER TRAINING", "A PhD in X"]
