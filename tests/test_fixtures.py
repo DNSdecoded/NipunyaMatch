@@ -1,4 +1,5 @@
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -7,10 +8,15 @@ from app.parsing.pipeline import parse_pdf
 
 FIX = Path("tests/fixtures")
 LABELS = json.loads((FIX / "golden/labels.json").read_text())
+_HAS_TESSERACT = bool(
+    shutil.which("tesseract") or Path(r"C:\Program Files\Tesseract-OCR	esseract.exe").exists()
+)
 
 
 @pytest.mark.parametrize("fname", sorted(LABELS))
 def test_fixture_parses_with_expected_fields(fname: str) -> None:
+    if fname == "10_jonas.pdf" and not _HAS_TESSERACT:
+        pytest.skip("image-only fixture needs the tesseract binary")
     doc = parse_pdf((FIX / "resumes" / fname).read_bytes())
     lab = LABELS[fname]
     if fname == "10_jonas.pdf":  # image-only: OCR'd; exact strings depend on Tesseract
