@@ -21,3 +21,7 @@ def test_join_broken_lines_keep_bullets() -> None:
 
 def test_collapse_whitespace() -> None:
     assert normalise(["a   b\n\n\n\nc"]) == "a b\n\nc"
+
+
+def test_icon_glyphs_removed() -> None:
+    assert normalise([" mail@x.com  github.com/x"]) == "mail@x.com github.com/x"

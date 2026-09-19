@@ -9,10 +9,13 @@ _BULLET = re.compile(r"^\s*([•\-\*▪●○◦‣]|\d+[.)])\s+")
 _PAGE_NO = re.compile(r"^\s*(page\s*)?\d+(\s*(of|/)\s*\d+)?\s*$", re.I)
 
 
+_ICON_GLYPHS = re.compile(r"[-]")  # private-use area: FontAwesome icons in templates
+
+
 def _fix_chars(s: str) -> str:
     for k, v in _CHARS.items():
         s = s.replace(k, v)
-    return s
+    return _ICON_GLYPHS.sub("", s)
 
 
 def _strip_repeated(pages: list[list[str]]) -> list[list[str]]:
