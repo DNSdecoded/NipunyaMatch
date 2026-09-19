@@ -1,7 +1,7 @@
-# Demo video script (target 6–8 min)
+# Demo video — speaking notes (target 7–9 min)
 
-Covers every item in the brief: upload, extraction, scoring for one resume, data in the DB,
-three-plus NL questions. Record at 1920×1080, browser zoom 110 %, mic on.
+Covers every item the brief asks for: JD + resume upload, extraction, scoring for one resume,
+data in the database, ≥3 natural-language questions. Bold text = what to say; plain = what to do.
 
 ## Before recording
 
@@ -10,77 +10,115 @@ uv run uvicorn app.main:app --port 8000          # terminal 1
 uv run streamlit run app/ui/Home.py              # terminal 2
 ```
 
-- `.env`: `GEMINI_MODEL_ANALYZE=gemini-3.5-flash-lite`, `GEMINI_MODEL_QUERY=gemini-3.5-flash-lite`,
-  `MAX_CONCURRENT_LLM=1` (free tier; ~20 calls/day/model). Budget for the take: 1 (JD) + 3
-  (resumes; extractions are cached) + 8 (4 questions) = 12 calls. Do one take.
-- Open http://localhost:8501 on **Data** page so the "before" state is visible.
-- Have `tests/fixtures/jd.txt` open in a text editor and `tests/fixtures/resumes/` in Explorer.
-- Optional second window: `sqlite3 data/recruiter.db` or DB Browser for SQLite.
+- `.env`: real `GEMINI_API_KEY`, `MAX_CONCURRENT_LLM=1`. Free tier ≈ 20 calls/day/model; this
+  take needs ~12 (1 JD + 3 resumes × 2 + 4 questions × 2 minus cache hits). One take.
+- Data page → delete any test jobs so the picker is clean. Keep job "Senior Backend Engineer"
+  (11 scored) as the pre-existing job to show multi-JD support.
+- Have ready: `tests/fixtures/jd.txt` in a text editor; a folder with `05_eli.pdf`,
+  `01_asha.pdf`, `06_fatima.pdf`, plus one scanned PDF (e.g. Swapnika's) to show OCR.
+- 1920×1080, browser zoom 110 %, mic check.
 
-## 0:00 — Intro (30 s)
+---
 
-Home page. Say: local recruitment assistant — FastAPI + Streamlit, SQLite, Gemini via a single
-gateway with retry/breaker/fallback. Point at sidebar: provider dot, breaker state, active-job
-picker. "Everything the model claims is checked against the resume text; every score decomposes."
+## 0:00 — Opening (30 s) — Home page, no job selected or the existing job
 
-## 0:30 — Job description upload (45 s)
+**"This is NipunyaMatch, a recruitment assistant I built for this assessment. It parses resume
+PDFs, scores every candidate against a job description with a transparent hybrid formula, stores
+everything in SQLite, and answers recruiter questions in plain English with cited sources.
+Stack: FastAPI backend, Streamlit UI, Gemini through a single gateway with retry, circuit
+breaker and model fallback. Everything runs locally with one API key; there's also a public demo
+on Cloud Run."**
 
-**Setup** page. Paste `tests/fixtures/jd.txt` → **Parse job**. Show parsed chips: required
-Python, FastAPI, Docker, PostgreSQL, machine learning; preferred AWS, Kubernetes; 3 yrs; bachelor.
-Say: one LLM call, structured output from a Pydantic schema, stored in `jobs` + `job_skills`.
+Point at the sidebar: provider dot, breaker state, Active-job picker.
+
+## 0:30 — Job description (45 s) — Setup page
+
+Paste `jd.txt` → **Parse job**.
+
+**"One LLM call, structured output validated by a Pydantic schema. It pulled required skills —
+Python, FastAPI, Docker, PostgreSQL, machine learning — preferred AWS and Kubernetes, three
+years, bachelor's. That's stored in `jobs` and `job_skills`. If the model misreads the JD I
+just edit the text and re-parse."**
 
 ## 1:15 — Resume upload + processing (1 min 30 s)
 
-Same page, drag in **three** PDFs: `01_asha.pdf`, `05_eli.pdf`, `06_fatima.pdf` (one strong,
-one perfect, one off-profile) → **Process 3 resume(s)**. **Processing** page polls every 2 s:
-show status → done, `pymupdf` extraction method, LLM call counter. Say: parse → extract (LLM 1,
-JD-independent, cached by resume hash) → score (deterministic) + analyse (LLM 2, per JD).
-Mention: bad PDFs get a per-file error row, never block the batch (optionally drop a `.txt`
-renamed `.pdf` to show it).
+Drag in the 3 text PDFs + the scanned one → **Process 4 resumes**. Processing page appears.
 
-## 2:45 — Candidate extraction + scoring for one resume (2 min)
+**"Each file goes parse → extract → score. Parsing is PyMuPDF with column detection for
+two-column layouts, and per-page OCR when a page has under 100 characters — you can see this
+one shows `pymupdf+ocr`, that's the scanned resume going through Tesseract. Extraction is LLM
+call one: contact details, skills copied verbatim, experience with dates, education. It's
+independent of the job and cached by the resume's hash, so changing the JD later re-scores
+without re-parsing. Then the scoring engine and LLM call two run per job. The counter is live LLM
+calls. A bad PDF gets an error row and never blocks the batch."**
 
-**Candidates** page. Ranked table: colour bands, matched/missing counts, years, parse method.
-Expand **Eli Novak**:
-- summary, component bar chart — read the formula: 0.35 required + 0.15 preferred +
-  0.20 experience + 0.10 education + 0.20 LLM fit; weights in `config/scoring.yaml`.
-- skills list with ✅ + quoted evidence; point at a ❌ and say "evidence wasn't a substring of the
-  resume → flipped to not-present and logged as a hallucination".
-- strengths / weaknesses / interview questions / reasoning.
-- footer: parse method, char count, validator flags.
-Expand **Fatima Khan**: Reject, 0/5 required — "missing more than half the required skills caps
-at Consider even if the LLM likes them".
-Click **Export CSV** briefly.
+Wait for done → **View candidates**.
 
-## 4:45 — Data in the database (45 s)
+## 2:45 — Scoring for one resume (2 min) — Candidates page
 
-**Data** page: jobs, all candidates with analyses count. Then (optional) SQLite window:
-```sql
-SELECT id, name, email, total_years_experience, extraction_method FROM candidates;
-SELECT candidate_id, final_score, recommendation, scoring_version FROM analyses WHERE job_id = <id>;
-SELECT provider, model, task, status, latency_ms FROM llm_calls ORDER BY id DESC LIMIT 5;
-```
-Say: analyses store every component + `scoring_version`; `skill_matches` keep the evidence;
-`llm_calls` is the audit trail of retries and providers; `chat_turns` persists the assistant.
+**"Ranked table: score, colour-banded recommendation, matched and missing required skills,
+years, parse method."** Expand **Eli Novak**.
 
-## 5:30 — Assistant, four questions (2 min)
+**"Every score decomposes. Thirty-five percent required-skill coverage, fifteen preferred, twenty
+experience fit, ten education, and only twenty percent is the model's holistic judgement — so
+eighty percent of the ranking is deterministic and reproducible. Weights live in a YAML file and
+the scoring version is stored on every row."**
 
-**Assistant** page. Ask, in this order (starter buttons for the first two):
-1. **Show me the top 5 candidates** → `top_n`, source chips.
-2. **Which candidates are missing Docker?** → `filter_skill`, has=false.
-3. **Which candidates have Machine Learning experience?** → alias-aware (`ML` → Machine Learning).
-4. **Why is Eli ranked higher than Asha?** → `explain_ranking`; say "the numbers in the answer
-   are computed in Python from the stored components and handed to the model as facts — it
-   narrates, it doesn't calculate."
-Point at provider caption under each answer. Refresh the page: history persists (from `chat_turns`).
+Point at skills list. **"This is the part I care most about. Every skill the model claims must be
+backed by a phrase that literally appears in the resume text. If it isn't — here's one with a
+cross — the claim is flipped to not-present and logged as a hallucination. The model can't
+invent evidence."**
 
-## 7:30 — Wrap (30 s)
+Scroll: strengths, weaknesses, interview questions, reasoning. **"Skill matching is exact, then an
+alias table — JS equals JavaScript, ML equals Machine Learning — then embedding similarity above
+0.75 at partial credit. Missing more than half the required skills caps you at Consider no matter
+what the LLM thinks."**
 
-README sections list, `pytest` count (142, no network), CI badge, Docker compose, limitations
-(free-tier quota, OCR quality, 12-resume eval set). Repo URL on screen.
+Expand **Fatima Khan** briefly: **"Frontend profile against a backend JD: zero of five required,
+Reject, and the reasoning says why."** Click **Export CSV**.
 
-## If something fails on camera
+## 4:45 — Data in the database (45 s) — Data page
 
-- `429 QUOTA_EXHAUSTED`: say it out loud — the failover chain and per-file error rows are a
-  feature — then switch `.env` model and restart API (`Ctrl-C`, rerun).
-- Streamlit stale import: restart `streamlit`, not just reload.
+**"All of it is in SQLite, eleven tables."** Tables section: pick `analyses`.
+
+**"One row per candidate per job with all five components, recommendation, scoring version.
+`skill_matches` keeps the evidence quotes. `llm_calls` is the audit trail — provider, model,
+attempt, latency, status — so retries and fallbacks are visible, not just logged. `llm_cache`
+is why re-uploads are free. `chat_turns` persists the assistant history."** Show `llm_calls`.
+
+## 5:30 — Assistant, four questions (2 min) — Assistant page
+
+Ask in order (use the starter buttons for 1 and 2):
+
+1. **Show me the top 5 candidates** — *"intent `top_n`, straight SQL, sources as chips."*
+2. **Which candidates are missing Docker?** — *"`filter_skill` with has=false, a join on
+   `candidate_skills`."*
+3. **Which candidates have Machine Learning experience?** — *"alias-aware: a resume that says
+   'ML' or 'TensorFlow' still matches."*
+4. **Why is Eli ranked higher than Asha?** — *"`explain_ranking`. The component differences and
+   the score gap are computed in Python and handed to the model as facts. It narrates; it doesn't
+   do arithmetic. That's deliberate — this is intent routing to typed handlers, not text-to-SQL,
+   so the model never writes a query and can't touch a table it shouldn't."*
+
+Refresh the page: **"History persists — it's in the database."**
+
+## 7:30 — Dashboard + wrap (45 s) — Home page
+
+**"The home page summarises the active job: bands, score distribution, coverage per candidate,
+top five."** Switch the job picker to the other JD: **"Multiple job descriptions coexist; a
+resume uploaded to two jobs is stored once and scored twice."**
+
+**"Repo: README with all ten sections, 157 tests that never touch the network, CI, Docker
+Compose, one-command Cloud Run deploy, and a live demo where visitors bring their own key.
+Known limits are in the README — OCR quality, non-English resumes, free-tier quotas, and a
+twelve-resume evaluation set with wide error bars. Thanks."** Repo URL on screen.
+
+---
+
+## If something goes wrong on camera
+
+- **429 / quota**: say it — *"free-tier quota; the gateway falls back to another Gemini model and
+  reports honestly when both are spent"* — then switch `GEMINI_MODEL_ANALYZE` in `.env` and
+  restart the API.
+- **Sidebar says API not reachable**: terminal 1 isn't up.
+- **Page shows stale code**: restart `streamlit`, not just reload.
