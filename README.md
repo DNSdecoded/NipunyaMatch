@@ -73,36 +73,80 @@ which provider answered and how many retries it took.
 
 ## 3. Setup and installation
 
+### Prerequisites
+
+| Need | Why | Install |
+| --- | --- | --- |
+| Python 3.11+ | runtime | python.org, or let `uv` fetch one |
+| `uv` (recommended) | dependency manager, lockfile | `pipx install uv` / `winget install astral-sh.uv` / `brew install uv` |
+| Gemini API key | the only required credential | free at https://aistudio.google.com/apikey |
+| Tesseract (optional) | OCR for scanned resumes only | `apt install tesseract-ocr` · `brew install tesseract` · `winget install UB-Mannheim.TesseractOCR` |
+| Docker (optional) | containerised run / deploy | Docker Desktop or Engine |
+
+First run downloads the `all-MiniLM-L6-v2` embedding model (~90 MB) into the Hugging Face cache;
+the Docker image bakes it in.
+
+### Configure
+
 ```bash
-cp .env.example .env            # then set GEMINI_API_KEY (https://aistudio.google.com/apikey)
-uv sync                         # Python 3.11+, installs everything incl. CPU torch for MiniLM
-# without uv:
-python -m venv .venv && . .venv/bin/activate && pip install -r requirements.txt
+git clone https://github.com/DNSdecoded/NipunyaMatch.git && cd NipunyaMatch
+cp .env.example .env
+# edit .env: set GEMINI_API_KEY=...   (everything else has a working default)
 ```
 
-`requirements.txt` is exported from `uv.lock` (`uv export --no-dev --no-emit-project`) and is the
-pip-compatible mirror of the same pins.
+`.env` keys:
 
-`OPENROUTER_API_KEY` is optional; without it there is no fallback provider (an OpenRouter account
-with no credits answers `402`, which the gateway reports as `QUOTA_EXHAUSTED`).
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `GEMINI_API_KEY` | — | required; startup fails with a named error without it |
+| `OPENROUTER_API_KEY` | empty | optional second provider; without it there is no cross-provider fallback |
+| `GEMINI_MODEL_EXTRACT` / `_ANALYZE` / `_QUERY` | `gemini-3.5-flash-lite` / `gemini-3.8-flash` / `gemini-3.5-flash` | model per task |
+| `GEMINI_MODEL_FALLBACK` | `gemini-3.5-flash-lite` | tried when a task's model exhausts retries (free-tier quotas are per model) |
+| `OPENROUTER_MODEL` | `google/gemini-3.8-flash` | fallback provider's model |
+| `DATABASE_URL` | `sqlite:///./data/recruiter.db` | any SQLAlchemy URL; SQLite file is created on first run |
+| `MAX_CONCURRENT_LLM` | `4` | semaphore around LLM calls during batch processing; use `1` on the free tier |
+| `DEMO_MODE` | `false` | public-demo hardening (see §8) |
+| `LOG_LEVEL` | `INFO` | |
 
-**Free-tier Gemini quotas.** The free tier allows roughly 20 requests/day *per model* and returns
-`503` on overloaded models. Budget: 1 call per JD, 2 per resume (extract + analyse), 2 per chat
-turn. If you hit `429 RESOURCE_EXHAUSTED`, point the affected task at a model with quota left,
-e.g. in `.env`:
+### Install — pick one
 
+**A. `uv` (recommended, reproducible from `uv.lock`)**
+
+```bash
+uv sync                 # creates .venv with exact pinned versions, dev tools included
 ```
-GEMINI_MODEL_ANALYZE=gemini-3.5-flash-lite
-GEMINI_MODEL_QUERY=gemini-3.5-flash-lite
-MAX_CONCURRENT_LLM=1
+
+**B. plain `pip` / `venv`**
+
+```bash
+python -m venv .venv
+. .venv/bin/activate            # Windows: .venv\Scripts\activate
+pip install -r requirements.txt # runtime pins exported from uv.lock
+pip install -e .                # puts the `app` package on the path (needed by scripts/)
 ```
 
-When a task's model exhausts its retries the gateway tries `GEMINI_MODEL_FALLBACK` (default
-`gemini-3.5-flash-lite`) before OpenRouter — free-tier quotas and 503s are per model. It also honours the `retry in Ns` delay Gemini puts in the 429 body; extractions and analyses
-are cached by prompt hash, so re-uploading a batch only re-runs what failed. Scanned resumes need
-the Tesseract binary (`apt install tesseract-ocr`, `brew install tesseract`, or the Windows
-installer); text PDFs work without it. Model IDs live in `.env`, never in code; the defaults are
-the stable IDs pinned in `docs/specs.md` (Gemini 2.0 models are shut down and are not used).
+For tests/lint on the pip path also `pip install pytest pytest-asyncio pytest-cov respx ruff mypy types-PyYAML`.
+
+**C. Docker only** — nothing to install locally beyond Docker; see §8.
+
+### Verify
+
+```bash
+uv run pytest -q                # 157 tests, no network, no key needed
+uv run ruff check . && uv run mypy app/llm app/scoring
+```
+
+(Prefix with `.venv/bin/` or activate the venv instead of `uv run` on the pip path.)
+
+### Free-tier notes
+
+The Gemini free tier allows roughly 20 requests/day *per model* and sometimes returns `503` on
+busy models. Budget: 1 call per JD, 2 per resume (extract + analyse), 2 per chat turn. Extractions
+and analyses are cached by prompt hash, so re-uploading a batch only re-runs what failed. If you
+see `429 QUOTA_EXHAUSTED … retry in Ns`, either wait, point the task at another model in `.env`,
+or add `OPENROUTER_API_KEY` (an OpenRouter account with no credits answers `402`, reported as
+`QUOTA_EXHAUSTED` too). Model IDs live in `.env`, never in code; Gemini 2.0 models are shut down
+and are not used.
 
 ## 4. Resume parsing approach and library choices
 
@@ -259,28 +303,129 @@ Sidebar on every page: provider status dot, breaker state, **Active job** picker
 
 ## 8. How to run
 
+Two processes: the FastAPI backend on **:8000** and the Streamlit UI on **:8501** (the UI talks
+to the API over HTTP; `API_BASE_URL` tells it where). Pick a path.
+
+### 8.1 Locally without Docker
+
 ```bash
-docker compose up                      # API on :8000, Streamlit UI on :8501
-# or, locally
-make dev                               # uv run uvicorn app.main:app --reload --port 8000
-make ui                                # uv run streamlit run app/ui/Home.py
-GEMINI_API_KEY=dummy make seed         # populated demo from 12 golden fixtures, no LLM call
-make test                              # pytest --cov, 70% floor, no network
-make lint                              # ruff + mypy --strict on app/llm and app/scoring
-uv run python scripts/evaluate.py      # golden-set numbers; needs a real GEMINI_API_KEY
-sh scripts/deploy.sh                   # (re)deploy the public demo to Cloud Run (see docs/superpowers/specs)
+# terminal 1 — API
+uv run uvicorn app.main:app --reload --port 8000        # make dev
+# terminal 2 — UI
+uv run streamlit run app/ui/Home.py                     # make ui
 ```
 
-No `make` on Windows? Run the `uv run ...` commands from the Makefile directly.
+Open http://localhost:8501. Docs for the raw API: http://localhost:8000/docs.
 
-**Public demo mode.** `DEMO_MODE=true` makes the API require an `X-Gemini-Key` header on every
-LLM-backed call (the Streamlit sidebar collects it and keeps it in the browser session only),
-disables deletes and rescoring, and caps uploads at 10 files / 5 MB each. That is how the hosted
-demo runs without spending the maintainer's quota. Single-container layout for Cloud Run:
-`docker build -t nipunyamatch . && docker run -p 8080:8080 -e GEMINI_API_KEY=x -e DEMO_MODE=true nipunyamatch`.
+Optional, before first use — a populated demo without spending any LLM calls:
 
-**Seeded demo.** `make seed` parses the 12 fixture PDFs, builds extractions from the golden labels,
-and scores them with the deterministic engine plus the labelled LLM fit — so the four starter
+```bash
+GEMINI_API_KEY=dummy uv run python scripts/seed.py      # make seed: 12 fixture resumes, ranked
+```
+
+On the pip/venv path replace `uv run` with the activated venv (`python -m uvicorn …`,
+`streamlit run …`). Windows without `make`: run the `uv run …` lines directly.
+
+### 8.2 Locally with Docker Compose
+
+```bash
+docker compose up --build            # api on :8000, ui on :8501; data/ is bind-mounted
+```
+
+Uses your `.env`. The image includes Tesseract and the embedding model, so scanned resumes work
+out of the box. Stop with `docker compose down`; the SQLite file persists in `./data`.
+
+### 8.3 Single container (what the hosted demo runs)
+
+```bash
+docker build -t nipunyamatch .
+docker run --rm -p 8080:8080 --env-file .env nipunyamatch
+```
+
+`entrypoint.sh` runs the API on 127.0.0.1:8000 and Streamlit on `$PORT` (8080) in one
+container; the demo DB is seeded at build time so a cold instance answers immediately. Add
+`-e DEMO_MODE=true` to get the public-demo behaviour below.
+
+### 8.4 Deploy to Google Cloud Run (free tier)
+
+One-time:
+
+```bash
+gcloud auth login
+gcloud projects create <project> && gcloud config set project <project>
+gcloud billing projects link <project> --billing-account <ACCOUNT_ID>   # required, stays $0 at demo traffic
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com
+# new projects: give Cloud Build's service account its roles (once)
+SA=$(gcloud projects describe <project> --format='value(projectNumber)')-compute@developer.gserviceaccount.com
+for r in roles/cloudbuild.builds.builder roles/storage.objectViewer roles/artifactregistry.writer roles/logging.logWriter; do
+  gcloud projects add-iam-policy-binding <project> --member serviceAccount:$SA --role $r; done
+```
+
+Every deploy (Cloud Build builds the image remotely; ~20 min the first time, no local Docker needed):
+
+```bash
+GCP_PROJECT=<project> sh scripts/deploy.sh
+```
+
+The script pins the settings that matter for this app: `--cpu 2 --concurrency 80` (Streamlit
+WebSockets), `--no-cpu-throttling` (background resume batches keep running after the upload
+response), `--timeout 3600 --session-affinity` (long-lived UI sessions), `--max-instances 1`
+(SQLite lives inside the instance; it resets on redeploy), `DEMO_MODE=true`. It prints the
+service URL at the end.
+
+**Demo mode** (`DEMO_MODE=true`): every LLM-backed call needs an `X-Gemini-Key` header — the
+sidebar collects the visitor's key and keeps it in the browser session only, so the server key
+is never spent; deletes and rescoring are disabled (`403 DEMO_READ_ONLY`); uploads are capped at
+10 files / 5 MB each. Data is shared between visitors.
+
+### 8.5 How to use
+
+1. **Setup** — paste a job description (or upload a JD PDF) → *Parse job*. Check the parsed
+   required / preferred skills, minimum years and degree; edit the text and re-parse if the model
+   missed something. Then drag in resume PDFs (up to 50) → *Process*.
+2. **Processing** — live per-file status (queued → processing → done/error), extraction method
+   (`pymupdf` or `pymupdf+ocr`), running LLM-call count. A bad PDF gets an error row and never
+   blocks the batch; *Retry failed* re-submits only those files.
+3. **Home** — dashboard for the active job: Shortlist / Consider / Reject counts, score
+   distribution, required-skill coverage per candidate, top 5.
+4. **Candidates** — ranked table with filters (min score, required skill, min years). Expand a
+   row for the component bar chart, ✅/❌ skills with the resume phrase as evidence, strengths,
+   weaknesses, interview questions and the model's reasoning. *Rescore all* re-runs the
+   deterministic 80 % after a weights/alias change with no LLM calls; *Re-analyze* re-runs the
+   LLM judgement for one candidate. Export CSV / XLSX.
+5. **Assistant** — ask in plain English; four starter buttons. Answers cite candidates as source
+   chips and show which provider answered. History is stored per job (`chat_turns`).
+6. **Data** — every table with row counts and a raw browser; delete a job or candidate, or clear
+   all (disabled in demo mode).
+
+The sidebar's **Active job** picker switches every page; several JDs can coexist and the same
+resume uploaded to two jobs is stored once and scored twice.
+
+### 8.6 Other commands
+
+```bash
+uv run pytest --cov --cov-fail-under=70      # make test
+uv run ruff check . && uv run mypy app/llm app/scoring   # make lint
+uv run python scripts/make_fixtures.py       # regenerate tests/fixtures/resumes + golden labels
+uv run python scripts/evaluate.py            # golden-set metrics; needs a real GEMINI_API_KEY (~36 calls)
+```
+
+### 8.7 Troubleshooting
+
+| Symptom | Cause / fix |
+| --- | --- |
+| Startup: `GEMINI_API_KEY is not set` | copy `.env.example` to `.env` and set the key |
+| Sidebar: *API not reachable* | start the API on :8000 first; in Docker Compose wait for `api` to be healthy |
+| `429 QUOTA_EXHAUSTED … retry in Ns` | free-tier daily limit on that model; wait, switch model in `.env`, or add OpenRouter credits |
+| `503 NO_PROVIDER` | Gemini returned a non-retryable error (bad key, 400) and no OpenRouter key is set |
+| Resume shows `error: not a PDF / encrypted / over 20 pages` | validation limits (§4); fix the file |
+| Scanned resume yields empty text | Tesseract not installed; `extraction_method` shows `pymupdf+ocr` when it is |
+| UI page keeps old code after an edit | Streamlit caches imported modules — restart `streamlit`, not just reload |
+
+### Seeded demo
+
+`scripts/seed.py` parses the 12 fixture PDFs, builds extractions from the golden labels, and
+scores them with the deterministic engine plus the labelled LLM fit — so the four starter
 questions answer from real rows without a key:
 
 ```
@@ -299,7 +444,7 @@ questions answer from real rows without a key:
 ```
 
 - *Show me the top 5 candidates* → Kavya, Eli, Asha, Ivy, Hiro.
-- *Which candidates know Python?* → Kavya, Eli, Asha, Ivy, Ben, Grace, Dana, Jonas (`candidate_skills` join).
+- *Which candidates know Python?* → Kavya, Eli, Asha, Ivy, Ben, Grace, Dana, Jonas.
 - *Which candidates are missing Docker?* → Ben, Chen, Dana, Fatima, Jonas, Leo.
 - *Recommend the best candidate for interview* → Kavya Iyer (91, all five required skills present).
 
