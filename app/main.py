@@ -32,7 +32,7 @@ def create_app(
     engine: ScoringEngine | None = None,
 ) -> FastAPI:
     logging.basicConfig(level=settings.log_level)
-    app = FastAPI(title="NipunyaMatch", version="1.0.0")
+    app = FastAPI(title="NipunyaMatch", version="1.0.1")
     app.state.settings = settings
     app.state.session_factory = session_factory
     app.state.gateway = gateway

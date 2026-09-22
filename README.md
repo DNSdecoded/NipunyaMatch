@@ -16,7 +16,7 @@ auditable ranked table, and ask questions in plain English with cited reasoning.
 
 ## Demo
 
-<video src="https://github.com/DNSdecoded/NipunyaMatch/releases/download/v1.0.0/demo.mp4" controls muted playsinline width="100%"></video>
+<video src="https://github.com/DNSdecoded/NipunyaMatch/releases/download/v1.0.1/demo.mp4" controls muted playsinline width="100%"></video>
 
 ![NipunyaMatch demo](docs/media/demo.gif)
 
@@ -25,7 +25,7 @@ Gemini key (sidebar). Cold start after idle takes ~1–3 min (the API seeds itse
 Data is shared between visitors and resets on restart; deletes are disabled there.
 
 20-second walkthrough: ranked candidates → score breakdown → evidence check → grounded Q&A.
-[MP4 (release asset)](https://github.com/DNSdecoded/NipunyaMatch/releases/download/v1.0.0/demo.mp4) · [MP4 (repo)](docs/media/demo.mp4)
+[MP4 (release asset)](https://github.com/DNSdecoded/NipunyaMatch/releases/download/v1.0.1/demo.mp4) · [MP4 (repo)](docs/media/demo.mp4)
 
 ## 1. Project description and objectives
 
@@ -100,7 +100,7 @@ cp .env.example .env
 | --- | --- | --- |
 | `GEMINI_API_KEY` | — | required; startup fails with a named error without it |
 | `OPENROUTER_API_KEY` | empty | optional second provider; without it there is no cross-provider fallback |
-| `GEMINI_MODEL_EXTRACT` / `_ANALYZE` / `_QUERY` | `gemini-3.5-flash-lite` / `gemini-3.8-flash` / `gemini-3.5-flash` | model per task |
+| `GEMINI_MODEL_EXTRACT` / `_ANALYZE` / `_QUERY` | `gemini-3.5-flash-lite` (all three) | model per task; flash-lite gets 500 RPD on the free tier vs 20 for `*-flash` |
 | `GEMINI_MODEL_FALLBACK` | `gemini-3.5-flash-lite` | tried when a task's model exhausts retries (free-tier quotas are per model) |
 | `OPENROUTER_MODEL` | `google/gemini-3.8-flash` | fallback provider's model |
 | `DATABASE_URL` | `sqlite:///./data/recruiter.db` | any SQLAlchemy URL; SQLite file is created on first run |

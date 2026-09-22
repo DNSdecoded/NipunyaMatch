@@ -29,6 +29,10 @@ def settings() -> Settings:
         gemini_api_key="test-gemini",
         openrouter_api_key="test-openrouter",
         database_url="sqlite:///:memory:",
+        # distinct model per task so respx routes can tell extract/analyze/query apart
+        gemini_model_extract="gemini-3.5-flash-lite",
+        gemini_model_analyze="gemini-3.8-flash",
+        gemini_model_query="gemini-3.5-flash",
     )
 
 
