@@ -392,6 +392,23 @@ response), `--timeout 3600 --session-affinity` (long-lived UI sessions), `--max-
 (SQLite lives inside the instance; it resets on redeploy), `DEMO_MODE=true`. It prints the
 service URL at the end.
 
+### 8.5 Deploy to Streamlit Community Cloud (free, no billing)
+
+At [share.streamlit.io](https://share.streamlit.io): **Create app** → this repo, branch `main`,
+main file `app/ui/Home.py`, Python 3.12. Under **Advanced settings → Secrets**:
+
+```toml
+GEMINI_API_KEY = "demo-unused"
+DEMO_MODE = "true"
+EMBED_API = "1"
+MAX_CONCURRENT_LLM = "2"
+```
+
+Community Cloud runs one process, so `EMBED_API=1` makes `app/ui/client.py` seed the DB and
+start FastAPI on `127.0.0.1:8000` in a background thread on first page load. Dependencies come
+from `uv.lock` (torch pinned to CPU wheels), `tesseract-ocr` from `packages.txt`. The app sleeps
+after inactivity; waking it reseeds.
+
 **Demo mode** (`DEMO_MODE=true`): every LLM-backed call needs an `X-Gemini-Key` header — the
 sidebar collects the visitor's key and keeps it in the browser session only, so the server key
 is never spent; deletes and rescoring are disabled (`403 DEMO_READ_ONLY`); uploads are capped at
