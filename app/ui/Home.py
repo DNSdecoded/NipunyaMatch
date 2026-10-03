@@ -1,6 +1,6 @@
 import streamlit as st
 
-from app.ui.client import get, health
+from app.ui.client import embed_status, get, health
 
 
 def sidebar() -> None:
@@ -43,7 +43,7 @@ def sidebar() -> None:
     else:
         st.sidebar.info("No job yet. Start on the Setup page.")
     if h["breaker_state"] == "down":
-        st.sidebar.error("API not reachable. Run `make dev`.")
+        st.sidebar.error(embed_status() or "API not reachable. Run `make dev`.")
     elif not h["gemini_configured"]:
         st.sidebar.error("GEMINI_API_KEY not configured. Set it in .env and restart the API.")
 

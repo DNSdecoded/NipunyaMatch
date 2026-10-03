@@ -13,19 +13,40 @@ def _start_embedded_api() -> None:
     import threading
     from pathlib import Path
 
+    global _embed_state
     with socket.socket() as s:
         if s.connect_ex(("127.0.0.1", 8000)) == 0:
+            _embed_state = "port 8000 already in use by another process"
             return
 
     def run() -> None:
-        import uvicorn
+        global _embed_state
+        try:
+            import uvicorn
 
-        if not Path("data/recruiter.db").exists():
-            Path("data").mkdir(exist_ok=True)
-            runpy.run_path("scripts/seed.py", run_name="__main__")
-        uvicorn.run("app.main:app", host="127.0.0.1", port=8000, log_level="warning")
+            if not Path("data/recruiter.db").exists():
+                _embed_state = "seeding demo data (first start, ~1-2 min)"
+                Path("data").mkdir(exist_ok=True)
+                runpy.run_path("scripts/seed.py", run_name="__main__")
+            _embed_state = "starting API"
+            uvicorn.run("app.main:app", host="127.0.0.1", port=8000, log_level="warning")
+            _embed_state = "API exited"
+        except BaseException:
+            import traceback
 
+            _embed_state = "API crashed:\n" + traceback.format_exc()[-1500:]
+            raise
+
+    _embed_state = "starting"
     threading.Thread(target=run, daemon=True).start()
+
+
+_embed_state: str | None = None  # None = not embedded (local dev runs the API separately)
+
+
+def embed_status() -> str | None:
+    """Progress/crash text of the embedded API, shown in the sidebar while it is unreachable."""
+    return f"Embedded API: {_embed_state}" if _embed_state else None
 
 
 if os.environ.get("EMBED_API"):  # module body runs once per process; Streamlit caches imports
