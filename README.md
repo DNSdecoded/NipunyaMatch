@@ -20,8 +20,8 @@ auditable ranked table, and ask questions in plain English with cited reasoning.
 
 ![NipunyaMatch demo](docs/media/demo.gif)
 
-**Live demo:** https://nipunyamatch-538602735799.us-central1.run.app — bring your own free
-Gemini key (sidebar). Cold start after idle takes ~1–3 min (the API seeds itself behind the UI).
+**Live demo:** https://nipunyamatch.streamlit.app — bring your own free Gemini key (sidebar).
+Waking it after idle takes ~1–3 min (the API seeds itself behind the UI).
 Data is shared between visitors and resets on restart; deletes are disabled there.
 
 20-second walkthrough: ranked candidates → score breakdown → evidence check → grounded Q&A.
